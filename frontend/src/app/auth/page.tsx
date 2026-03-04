@@ -6,8 +6,8 @@ import { apiRequest } from "@/lib/api";
 import { auth, hasFirebaseConfig } from "@/lib/firebase-client";
 import { FirebaseError } from "firebase/app";
 import { ConfirmationResult, RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
-import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { FormEvent, useEffect, useRef, useState } from "react";
 
 declare global {
   interface Window {
@@ -24,7 +24,6 @@ type AuthPayload = {
 
 export default function AuthPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { user, authReady } = useStore();
 
   const [phoneNumber, setPhoneNumber] = useState("+1");
@@ -40,10 +39,20 @@ export default function AuthPage() {
   const [profileEmail, setProfileEmail] = useState("");
   const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
 
-  const nextPath = useMemo(() => {
-    const next = searchParams.get("next");
-    return next && next.startsWith("/") ? next : "/";
-  }, [searchParams]);
+  const [nextPath, setNextPath] = useState<string>(() => "/");
+
+  useEffect(() => {
+    // Read `next` query param on client mount to avoid using
+    // `useSearchParams` during server/prerender which causes a CSR bailout.
+    try {
+      if (typeof window === "undefined") return;
+      const params = new URLSearchParams(window.location.search);
+      const next = params.get("next");
+      setNextPath(next && next.startsWith("/") ? next : "/");
+    } catch {
+      setNextPath("/");
+    }
+  }, []);
 
   useEffect(() => {
     if (!authReady) {
