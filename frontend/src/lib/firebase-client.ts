@@ -10,9 +10,15 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
 
-const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-const auth: Auth = getAuth(app);
+const hasFirebaseConfig = Object.values(firebaseConfig).every((value) => typeof value === "string" && value.length > 0);
 
-void setPersistence(auth, browserLocalPersistence);
+const app = hasFirebaseConfig ? (getApps().length ? getApp() : initializeApp(firebaseConfig)) : null;
+const auth: Auth | null = app ? getAuth(app) : null;
 
-export { app, auth };
+if (typeof window !== "undefined" && auth) {
+  void setPersistence(auth, browserLocalPersistence).catch(() => {
+    // Ignore persistence setup failures so auth can still function.
+  });
+}
+
+export { app, auth, hasFirebaseConfig };

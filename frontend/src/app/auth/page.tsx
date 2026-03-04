@@ -3,7 +3,7 @@
 import SectionHeader from "@/components/common/section-header";
 import { useStore } from "@/context/store-context";
 import { apiRequest } from "@/lib/api";
-import { auth } from "@/lib/firebase-client";
+import { auth, hasFirebaseConfig } from "@/lib/firebase-client";
 import { FirebaseError } from "firebase/app";
 import { ConfirmationResult, RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -66,7 +66,7 @@ export default function AuthPage() {
   };
 
   const initRecaptchaVerifier = async () => {
-    if (typeof window === "undefined") return null;
+    if (typeof window === "undefined" || !auth) return null;
 
     clearRecaptchaVerifier();
 
@@ -81,6 +81,10 @@ export default function AuthPage() {
   };
 
   useEffect(() => {
+    if (!auth) {
+      return;
+    }
+
     void initRecaptchaVerifier();
 
     return () => {
@@ -95,6 +99,11 @@ export default function AuthPage() {
 
     if (!phoneNumber.startsWith("+") || phoneNumber.length < 8) {
       setError("Enter a valid phone number with country code. Example: +14155550123");
+      return;
+    }
+
+    if (!auth) {
+      setError("Authentication is unavailable. Check Firebase public environment variables.");
       return;
     }
 
@@ -224,6 +233,12 @@ export default function AuthPage() {
       />
 
       <div className="mx-auto max-w-xl space-y-5 rounded-2xl border border-white/10 bg-white/5 p-6 shadow-soft">
+        {!hasFirebaseConfig ? (
+          <p className="rounded-xl border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Authentication is currently unavailable because Firebase configuration is missing.
+          </p>
+        ) : null}
+
         <form className="space-y-3" onSubmit={sendOtp}>
           <label className="text-sm font-medium text-coal" htmlFor="phone-number">
             Mobile number
@@ -238,7 +253,7 @@ export default function AuthPage() {
           />
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !auth}
             className="w-full rounded-full bg-champagne px-4 py-3 text-sm font-semibold text-coal disabled:opacity-60"
           >
             {loading ? "Sending OTP..." : "Send OTP"}
@@ -260,7 +275,7 @@ export default function AuthPage() {
           />
           <button
             type="submit"
-            disabled={loading || !confirmationResult}
+            disabled={loading || !confirmationResult || !auth}
             className="w-full rounded-full border border-black/20 bg-white px-4 py-3 text-sm font-semibold text-coal disabled:opacity-60"
           >
             {loading ? "Verifying..." : "Verify OTP"}

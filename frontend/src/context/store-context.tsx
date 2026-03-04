@@ -74,7 +74,14 @@ export const StoreProvider = ({ children }: { children: React.ReactNode }) => {
   }, [wishlist]);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    if (!auth) {
+      setUser(null);
+      setAuthReady(true);
+      return;
+    }
+
+    const firebaseAuth = auth;
+    const unsubscribe = onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
       if (!firebaseUser) {
         setUser(null);
         setAuthReady(true);
@@ -85,7 +92,7 @@ export const StoreProvider = ({ children }: { children: React.ReactNode }) => {
       const sessionExpired = Date.now() - sessionStartedAt > SESSION_TTL_MS;
 
       if (sessionExpired) {
-        await signOut(auth);
+        await signOut(firebaseAuth);
         localStorage.removeItem(SESSION_KEY);
         setUser(null);
         setAuthReady(true);
@@ -180,7 +187,9 @@ export const StoreProvider = ({ children }: { children: React.ReactNode }) => {
   const getCartProduct = (item: CartItemType) => products.find((p) => p.id === item.productId);
 
   const logout = async () => {
-    await signOut(auth);
+    if (auth) {
+      await signOut(auth);
+    }
     localStorage.removeItem(SESSION_KEY);
     localStorage.removeItem("hairiq_server_token");
     setUser(null);
