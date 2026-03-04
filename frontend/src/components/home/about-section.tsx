@@ -2,19 +2,21 @@ import SectionHeader from "@/components/common/section-header";
 
 export default function AboutSection() {
   return (
-    <section className="grid gap-8 rounded-3xl border border-white/10 bg-white/5 p-6 md:grid-cols-2 md:p-10">
+    <section className="grid gap-8 md:grid-cols-2 md:gap-10">
       <SectionHeader
         eyebrow="About Hair IQ"
-        title="Crafted by experts who understand modern confidence"
-        description="Hair IQ was created for men who demand realism, comfort, and style. We combine barber-backed craftsmanship with high-performance materials to build undetectable systems that fit active routines."
+        title="India&apos;s largest wholesale hair patch trader, now delivering directly to your doorstep"
+        description="At Hair IQ, we&apos;ve been part of the hair patch industry for a long time and became India&apos;s largest wholesale trader."
       />
       <div className="space-y-5 text-sm text-gray-600 md:text-base">
         <p>
-          From consultation-inspired product design to easy-to-follow video education, every touchpoint is built to make your transformation simple.
+          We recently expanded into home service in Delhi NCR after identifying a major market gap.
         </p>
         <p>
-          Our mission is straightforward: premium outcomes without the confusion. That means consistent quality control, clean packaging, and transparent
-          guidance for first-time and experienced users.
+          We now realize that scaling a technician team nationwide will take time, so we are launching a B2C website with open delivery.
+        </p>
+        <p>
+          We guarantee the best prices in the market because we eliminate middlemen and deliver directly from our factory in Bangladesh to your door.
         </p>
       </div>
     </section>

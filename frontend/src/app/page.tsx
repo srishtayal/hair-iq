@@ -1,4 +1,5 @@
 import AboutSection from "@/components/home/about-section";
+import FaqSection from "@/components/home/faq-section";
 import FeaturedProducts from "@/components/home/featured-products";
 import HeroSection from "@/components/home/hero-section";
 import TestimonialSection from "@/components/home/testimonial-section";
@@ -12,6 +13,7 @@ export default function HomePage() {
       <VideoPreview />
       <TestimonialSection />
       <FeaturedProducts />
+      <FaqSection />
     </div>
   );
 }
