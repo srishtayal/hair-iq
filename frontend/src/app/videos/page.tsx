@@ -3,13 +3,10 @@
 import EmptyState from "@/components/common/empty-state";
 import SectionHeader from "@/components/common/section-header";
 import VideoCard from "@/components/video/video-card";
-import VideoModal from "@/components/video/video-modal";
 import { videos } from "@/data/videos";
-import { Video } from "@/types";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 export default function VideosPage() {
-  const [activeVideo, setActiveVideo] = useState<Video | null>(null);
   const [category, setCategory] = useState("All");
   const [isTouchDevice, setIsTouchDevice] = useState(false);
   const [visibilityRatios, setVisibilityRatios] = useState<Record<string, number>>({});
@@ -45,7 +42,7 @@ export default function VideosPage() {
   }, []);
 
   useEffect(() => {
-    if (!isTouchDevice || activeVideo) {
+    if (!isTouchDevice) {
       setAutoPreviewVideoId(null);
       return;
     }
@@ -69,9 +66,7 @@ export default function VideosPage() {
       }
       return topId;
     });
-  }, [activeVideo, isTouchDevice, visibilityRatios]);
-
-  const autoPreviewEnabled = isTouchDevice && !activeVideo;
+  }, [isTouchDevice, visibilityRatios]);
 
   return (
     <div className="pt-12 space-y-8">
@@ -101,8 +96,7 @@ export default function VideosPage() {
             <VideoCard
               key={video.id}
               video={video}
-              onPlay={setActiveVideo}
-              autoPreviewEnabled={autoPreviewEnabled}
+              autoPreviewEnabled={isTouchDevice}
               isAutoFocused={autoPreviewVideoId === video.id}
               onVisibilityChange={handleVisibilityChange}
             />
@@ -116,13 +110,6 @@ export default function VideosPage() {
           ctaHref="/videos"
         />
       )}
-
-      <VideoModal
-        open={!!activeVideo}
-        onClose={() => setActiveVideo(null)}
-        embedUrl={activeVideo?.embedUrl ?? ""}
-        title={activeVideo?.title ?? ""}
-      />
     </div>
   );
 }

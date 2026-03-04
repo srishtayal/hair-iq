@@ -2,14 +2,11 @@
 
 import SectionHeader from "@/components/common/section-header";
 import VideoCard from "@/components/video/video-card";
-import VideoModal from "@/components/video/video-modal";
 import { videos } from "@/data/videos";
-import { Video } from "@/types";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 export default function VideoPreview() {
-  const [activeVideo, setActiveVideo] = useState<Video | null>(null);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
   const [visibilityRatios, setVisibilityRatios] = useState<Record<string, number>>({});
   const [autoPreviewVideoId, setAutoPreviewVideoId] = useState<string | null>(null);
@@ -38,7 +35,7 @@ export default function VideoPreview() {
   }, []);
 
   useEffect(() => {
-    if (!isTouchDevice || activeVideo) {
+    if (!isTouchDevice) {
       setAutoPreviewVideoId(null);
       return;
     }
@@ -62,9 +59,7 @@ export default function VideoPreview() {
       }
       return topId;
     });
-  }, [activeVideo, isTouchDevice, visibilityRatios]);
-
-  const autoPreviewEnabled = isTouchDevice && !activeVideo;
+  }, [isTouchDevice, visibilityRatios]);
 
   return (
     <section className="space-y-8">
@@ -79,20 +74,13 @@ export default function VideoPreview() {
           <div key={video.id} className="min-w-[200px] flex-1 snap-start md:min-w-[260px]">
             <VideoCard
               video={video}
-              onPlay={setActiveVideo}
-              autoPreviewEnabled={autoPreviewEnabled}
+              autoPreviewEnabled={isTouchDevice}
               isAutoFocused={autoPreviewVideoId === video.id}
               onVisibilityChange={handleVisibilityChange}
             />
           </div>
         ))}
       </div>
-      <VideoModal
-        open={!!activeVideo}
-        onClose={() => setActiveVideo(null)}
-        embedUrl={activeVideo?.embedUrl ?? ""}
-        title={activeVideo?.title ?? ""}
-      />
     </section>
   );
 }

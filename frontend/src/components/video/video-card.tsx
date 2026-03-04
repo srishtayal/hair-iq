@@ -7,7 +7,6 @@ import { useEffect, useRef, useState } from "react";
 
 type VideoCardProps = {
   video: Video;
-  onPlay: (video: Video) => void;
   autoPreviewEnabled?: boolean;
   isAutoFocused?: boolean;
   onVisibilityChange?: (videoId: string, ratio: number) => void;
@@ -15,19 +14,35 @@ type VideoCardProps = {
 
 export default function VideoCard({
   video,
-  onPlay,
   autoPreviewEnabled = false,
   isAutoFocused = false,
   onVisibilityChange
 }: VideoCardProps) {
-  const [isManualPreviewing, setIsManualPreviewing] = useState(false);
+  const [isPointerHovering, setIsPointerHovering] = useState(false);
   const cardRef = useRef<HTMLElement | null>(null);
   const previewRef = useRef<HTMLVideoElement | null>(null);
-  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastLongPressAtRef = useRef(0);
 
   const canPreviewInline = /\.(mp4|webm|ogg)(\?|$)/i.test(video.embedUrl);
-  const shouldPreview = isManualPreviewing || (autoPreviewEnabled && isAutoFocused);
+  const shouldPreview = isPointerHovering || (autoPreviewEnabled && isAutoFocused);
+
+  const playPreview = (preferAudio: boolean) => {
+    const media = previewRef.current;
+    if (!media) return;
+
+    media.muted = !preferAudio;
+    const playPromise = media.play();
+
+    if (!playPromise || typeof playPromise.catch !== "function") return;
+
+    playPromise.catch(() => {
+      if (!preferAudio) return;
+      media.muted = true;
+      const fallbackPromise = media.play();
+      if (fallbackPromise && typeof fallbackPromise.catch === "function") {
+        fallbackPromise.catch(() => {});
+      }
+    });
+  };
 
   useEffect(() => {
     if (!onVisibilityChange) return;
@@ -63,69 +78,24 @@ export default function VideoCard({
     if (!media) return;
 
     if (shouldPreview) {
-      const playPromise = media.play();
-      if (playPromise && typeof playPromise.catch === "function") {
-        playPromise.catch(() => {});
-      }
+      playPreview(true);
       return;
     }
 
     media.pause();
     media.currentTime = 0;
+    media.muted = true;
   }, [shouldPreview]);
-
-  useEffect(() => {
-    return () => {
-      if (holdTimerRef.current) {
-        clearTimeout(holdTimerRef.current);
-      }
-    };
-  }, []);
-
-  const clearHoldTimer = () => {
-    if (!holdTimerRef.current) return;
-    clearTimeout(holdTimerRef.current);
-    holdTimerRef.current = null;
-  };
 
   const handlePointerEnter = (pointerType: string) => {
     if (!canPreviewInline || pointerType !== "mouse") return;
-    setIsManualPreviewing(true);
+    setIsPointerHovering(true);
+    playPreview(true);
   };
 
   const handlePointerLeave = (pointerType: string) => {
     if (!canPreviewInline || pointerType !== "mouse") return;
-    clearHoldTimer();
-    setIsManualPreviewing(false);
-  };
-
-  const handlePointerDown = (pointerType: string) => {
-    if (!canPreviewInline || pointerType !== "touch") return;
-    clearHoldTimer();
-    holdTimerRef.current = setTimeout(() => {
-      lastLongPressAtRef.current = Date.now();
-      setIsManualPreviewing(true);
-    }, 250);
-  };
-
-  const handlePointerMove = (pointerType: string) => {
-    if (!canPreviewInline || pointerType !== "touch") return;
-    if (Date.now() - lastLongPressAtRef.current > 350) {
-      clearHoldTimer();
-    }
-  };
-
-  const handlePointerUpOrCancel = (pointerType: string) => {
-    if (!canPreviewInline || pointerType !== "touch") return;
-    clearHoldTimer();
-    setIsManualPreviewing(false);
-  };
-
-  const handleOpenVideo = () => {
-    if (Date.now() - lastLongPressAtRef.current < 500) {
-      return;
-    }
-    onPlay(video);
+    setIsPointerHovering(false);
   };
 
   return (
@@ -135,24 +105,8 @@ export default function VideoCard({
       className="group overflow-hidden rounded-2xl border border-graphite/10 bg-transparent"
       onPointerEnter={(event) => handlePointerEnter(event.pointerType)}
       onPointerLeave={(event) => handlePointerLeave(event.pointerType)}
-      onPointerDown={(event) => handlePointerDown(event.pointerType)}
-      onPointerMove={(event) => handlePointerMove(event.pointerType)}
-      onPointerUp={(event) => handlePointerUpOrCancel(event.pointerType)}
-      onPointerCancel={(event) => handlePointerUpOrCancel(event.pointerType)}
     >
-      <div
-        className="relative aspect-[3/4] cursor-pointer"
-        onClick={handleOpenVideo}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            handleOpenVideo();
-          }
-        }}
-        role="button"
-        tabIndex={0}
-        aria-label={`Open ${video.title}`}
-      >
+      <div className="relative aspect-[3/4]">
         {canPreviewInline ? (
           <video
             ref={previewRef}
