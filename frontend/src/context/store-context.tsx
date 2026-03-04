@@ -14,6 +14,7 @@ type StoreContextType = {
   addToCart: (productId: string, variantId?: string) => void;
   updateCartQty: (itemId: string, quantity: number) => void;
   removeFromCart: (itemId: string) => void;
+  clearCart: () => void;
   toggleWishlist: (productId: string) => void;
   moveWishlistToCart: (productId: string) => void;
   isWishlisted: (productId: string) => boolean;
@@ -157,6 +158,7 @@ export const StoreProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const removeFromCart = (itemId: string) => setCartItems((prev) => prev.filter((item) => item.itemId !== itemId));
+  const clearCart = () => setCartItems([]);
 
   const toggleWishlist = (productId: string) => {
     if (!ensureAuthenticated("/wishlist")) {
@@ -236,6 +238,7 @@ export const StoreProvider = ({ children }: { children: React.ReactNode }) => {
         addToCart,
         updateCartQty,
         removeFromCart,
+        clearCart,
         toggleWishlist,
         moveWishlistToCart,
         isWishlisted,

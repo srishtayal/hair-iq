@@ -39,6 +39,15 @@ After OTP verification in `/auth`, frontend gets Firebase `idToken` via:
 Then it calls backend:
 - `POST /auth/verify-firebase` with body `{ "idToken": "<firebase-id-token>" }`
 
+### Razorpay checkout
+
+Cart checkout now opens Razorpay and verifies the payment signature via backend.
+
+Required backend env (in `/Users/srishtitayal/Projects/hairIQ/backend/.env`):
+
+- `RAZORPAY_KEY_ID=rzp_test_...`
+- `RAZORPAY_KEY_SECRET=...`
+
 ## Routes
 
 - `/` Home

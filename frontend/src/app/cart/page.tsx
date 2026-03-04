@@ -4,11 +4,155 @@ import CartItem from "@/components/cart/cart-item";
 import EmptyState from "@/components/common/empty-state";
 import SectionHeader from "@/components/common/section-header";
 import { useStore } from "@/context/store-context";
+import { apiRequest } from "@/lib/api";
 import { currency } from "@/lib/utils";
+import { useState } from "react";
+
+type RazorpayOrderResponse = {
+  success: true;
+  data: {
+    razorpayOrderId: string;
+    razorpayKeyId: string;
+    amount: number;
+    currency: string;
+  };
+};
+
+type VerifySignatureResponse = {
+  success: true;
+  data: {
+    verified: boolean;
+  };
+};
+
+type RazorpayHandlerPayload = {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+};
+
+type RazorpayCheckoutOptions = {
+  key: string;
+  amount: number;
+  currency: string;
+  name: string;
+  description: string;
+  order_id: string;
+  handler: (response: RazorpayHandlerPayload) => void | Promise<void>;
+  prefill?: {
+    name?: string;
+    email?: string;
+    contact?: string;
+  };
+  theme?: {
+    color?: string;
+  };
+  modal?: {
+    ondismiss?: () => void;
+  };
+};
+
+type RazorpayInstance = {
+  open: () => void;
+};
+
+declare global {
+  interface Window {
+    Razorpay?: new (options: RazorpayCheckoutOptions) => RazorpayInstance;
+  }
+}
+
+const loadRazorpayScript = async () => {
+  if (window.Razorpay) return true;
+
+  return new Promise<boolean>((resolve) => {
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
 
 export default function CartPage() {
-  const { cartItems, cartSubtotal, isAuthenticated, goToAuth } = useStore();
+  const { cartItems, cartSubtotal, isAuthenticated, goToAuth, user, clearCart } = useStore();
   const subtotal = cartItems.length ? cartSubtotal - 12 : 0;
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleCheckout = async () => {
+    if (!isAuthenticated) {
+      goToAuth("/cart");
+      return;
+    }
+
+    if (!cartItems.length || cartSubtotal <= 0 || isProcessing) {
+      return;
+    }
+
+    setIsProcessing(true);
+
+    try {
+      const sdkLoaded = await loadRazorpayScript();
+      if (!sdkLoaded || !window.Razorpay) {
+        throw new Error("Unable to load Razorpay SDK");
+      }
+
+      const serverToken = localStorage.getItem("hairiq_server_token");
+      if (!serverToken) {
+        throw new Error("Missing login token. Please login again.");
+      }
+
+      const orderResponse = await apiRequest<RazorpayOrderResponse>(
+        "/payments/create-order",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            amountInRupees: cartSubtotal,
+          }),
+        },
+        serverToken
+      );
+
+      const checkout = new window.Razorpay({
+        key: orderResponse.data.razorpayKeyId,
+        order_id: orderResponse.data.razorpayOrderId,
+        amount: orderResponse.data.amount,
+        currency: orderResponse.data.currency,
+        name: "Hair IQ",
+        description: "Cart checkout",
+        prefill: {
+          name: user?.displayName || undefined,
+          email: user?.email || undefined,
+          contact: user?.phoneNumber || undefined,
+        },
+        theme: {
+          color: "#d4b894",
+        },
+        handler: async (paymentResponse) => {
+          await apiRequest<VerifySignatureResponse>("/orders/verify-signature", {
+            method: "POST",
+            body: JSON.stringify(paymentResponse),
+          });
+
+          clearCart();
+          alert("Payment verified successfully.");
+          setIsProcessing(false);
+        },
+        modal: {
+          ondismiss: () => {
+            setIsProcessing(false);
+          },
+        },
+      });
+
+      checkout.open();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to start checkout";
+      alert(message);
+      setIsProcessing(false);
+    }
+  };
 
   return (
     <div className="pt-12 space-y-8">
@@ -46,15 +190,11 @@ export default function CartPage() {
               </div>
             </div>
             <button
-              onClick={() => {
-                if (!isAuthenticated) {
-                  goToAuth("/cart");
-                  return;
-                }
-              }}
-              className="mt-5 w-full rounded-full bg-champagne px-4 py-3 text-sm font-semibold text-coal"
+              onClick={handleCheckout}
+              disabled={isProcessing}
+              className="mt-5 w-full rounded-full bg-champagne px-4 py-3 text-sm font-semibold text-coal disabled:cursor-not-allowed disabled:opacity-70"
             >
-              Proceed to Checkout
+              {isProcessing ? "Processing..." : "Proceed to Checkout"}
             </button>
           </aside>
         </div>
