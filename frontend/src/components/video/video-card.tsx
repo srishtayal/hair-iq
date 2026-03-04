@@ -153,13 +153,6 @@ export default function VideoCard({
         tabIndex={0}
         aria-label={`Open ${video.title}`}
       >
-        <Image
-          src={video.thumbnail}
-          alt={video.title}
-          fill
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          className={`object-cover transition duration-500 group-hover:scale-105 ${shouldPreview ? "opacity-0" : "opacity-100"}`}
-        />
         {canPreviewInline ? (
           <video
             ref={previewRef}
@@ -168,9 +161,17 @@ export default function VideoCard({
             loop
             playsInline
             preload="metadata"
-            className={`pointer-events-none absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${shouldPreview ? "opacity-100" : "opacity-0"}`}
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
           />
-        ) : null}
+        ) : (
+          <Image
+            src={video.thumbnail}
+            alt={video.title}
+            fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            className="object-cover transition duration-500 group-hover:scale-105"
+          />
+        )}
         <div className="absolute inset-0 bg-transparent" />
         <span className="absolute bottom-3 right-3 rounded bg-transparent px-2 py-1 text-xs text-white">{video.duration}</span>
       </div>
