@@ -16,6 +16,61 @@ const createOrder = async (req, res, next) => {
   }
 };
 
+const createPaymentOrder = async (req, res, next) => {
+  try {
+    const data = await orderService.createPaymentOrder({
+      amountInRupees: req.body.amountInRupees,
+      userId: req.user?.id || null,
+    });
+
+    return res.status(201).json({ success: true, data });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const verifyPaymentSignature = async (req, res, next) => {
+  try {
+    const {
+      razorpay_order_id: razorpayOrderId,
+      razorpay_payment_id: razorpayPaymentId,
+      razorpay_signature: razorpaySignature,
+    } = req.body;
+
+    orderService.verifyRazorpayPaymentSignature({
+      razorpayOrderId,
+      razorpayPaymentId,
+      razorpaySignature,
+    });
+
+    try {
+      await orderService.processPaymentCaptured({
+        payload: {
+          payment: {
+            entity: {
+              id: razorpayPaymentId,
+              order_id: razorpayOrderId,
+            },
+          },
+        },
+      });
+    } catch (captureError) {
+      if (captureError?.statusCode !== 404) {
+        throw captureError;
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        verified: true,
+      },
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 const razorpayWebhook = async (req, res, next) => {
   try {
     const signature = req.headers['x-razorpay-signature'];
@@ -36,6 +91,8 @@ const razorpayWebhook = async (req, res, next) => {
 };
 
 module.exports = {
+  createPaymentOrder,
   createOrder,
+  verifyPaymentSignature,
   razorpayWebhook,
 };

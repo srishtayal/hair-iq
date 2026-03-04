@@ -117,7 +117,7 @@ const mountAdmin = async (app) => {
           editProperties: ['productId', 'sku', 'price', 'stockQuantity', 'size', 'color', 'density'],
           properties: {
             productId: {
-              reference: 'Product',
+              reference: 'products',
             },
           },
         },
@@ -130,7 +130,7 @@ const mountAdmin = async (app) => {
           editProperties: ['productId', 'type', 'sortOrder', 'uploadFile'],
           properties: {
             productId: {
-              reference: 'Product',
+              reference: 'products',
             },
             uploadFile: {
               isVisible: { list: false, filter: false, show: false, edit: true },
@@ -188,8 +188,8 @@ const mountAdmin = async (app) => {
           navigation: { name: 'Orders', icon: 'PurchaseTag' },
           listProperties: ['id', 'orderId', 'productVariantId', 'quantity', 'priceAtPurchase'],
           properties: {
-            orderId: { reference: 'Order' },
-            productVariantId: { reference: 'ProductVariant' },
+            orderId: { reference: 'orders' },
+            productVariantId: { reference: 'product_variants' },
           },
         },
       },

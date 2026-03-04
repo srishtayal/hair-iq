@@ -174,6 +174,42 @@ Response:
   - Reduce stock in DB transaction
   - Save full webhook payload in `payments.rawResponse`
 
+### Quick checkout order (authenticated)
+
+`POST /payments/create-order`
+
+```json
+{
+  "amountInRupees": 499
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "data": {
+    "razorpayOrderId": "order_...",
+    "razorpayKeyId": "rzp_test_...",
+    "amount": 49900,
+    "currency": "INR"
+  }
+}
+```
+
+### Verify Razorpay payment signature
+
+`POST /orders/verify-signature`
+
+```json
+{
+  "razorpay_order_id": "order_...",
+  "razorpay_payment_id": "pay_...",
+  "razorpay_signature": "..."
+}
+```
+
 ## Razorpay Sample Code
 
 Create Razorpay order:

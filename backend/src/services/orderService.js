@@ -29,6 +29,59 @@ const getRazorpayClient = () => {
   };
 };
 
+const verifyRazorpayPaymentSignature = ({ razorpayOrderId, razorpayPaymentId, razorpaySignature }) => {
+  const secret = process.env.RAZORPAY_KEY_SECRET;
+
+  if (!secret) {
+    throw createError('RAZORPAY_KEY_SECRET is not configured', 500);
+  }
+
+  if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
+    throw createError('razorpayOrderId, razorpayPaymentId, and razorpaySignature are required', 400);
+  }
+
+  const body = `${razorpayOrderId}|${razorpayPaymentId}`;
+  const expected = crypto.createHmac('sha256', secret).update(body).digest('hex');
+
+  const expectedBuffer = Buffer.from(expected, 'utf8');
+  const signatureBuffer = Buffer.from(razorpaySignature, 'utf8');
+
+  if (expectedBuffer.length !== signatureBuffer.length) {
+    throw createError('Invalid payment signature', 400);
+  }
+
+  if (!crypto.timingSafeEqual(expectedBuffer, signatureBuffer)) {
+    throw createError('Invalid payment signature', 400);
+  }
+};
+
+const createPaymentOrder = async ({ amountInRupees, userId }) => {
+  const parsedAmount = Number(amountInRupees);
+
+  if (Number.isNaN(parsedAmount) || parsedAmount <= 0) {
+    throw createError('amountInRupees must be a number greater than 0', 400);
+  }
+
+  const amountInPaise = Math.round(parsedAmount * 100);
+  const { client, keyId } = getRazorpayClient();
+
+  const razorpayOrder = await client.orders.create({
+    amount: amountInPaise,
+    currency: 'INR',
+    receipt: `quick_${Date.now()}`,
+    notes: {
+      userId: userId || 'guest',
+    },
+  });
+
+  return {
+    razorpayOrderId: razorpayOrder.id,
+    razorpayKeyId: keyId,
+    amount: razorpayOrder.amount,
+    currency: razorpayOrder.currency,
+  };
+};
+
 const normalizeItems = async ({ userId, cartId, items, transaction }) => {
   if (cartId) {
     const cart = await Cart.findOne({ where: { id: cartId, userId }, transaction });
@@ -298,7 +351,9 @@ const processPaymentCaptured = async (payload) => {
 };
 
 module.exports = {
+  createPaymentOrder,
   createOrder,
+  verifyRazorpayPaymentSignature,
   verifyRazorpayWebhookSignature,
   processPaymentCaptured,
 };
