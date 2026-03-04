@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const fs = require('fs/promises');
 const path = require('path');
 const axios = require('axios');
+const UPLOADS_DIR = path.resolve(__dirname, '..', '..', 'uploads');
 
 const parseCloudinaryUrl = (cloudinaryUrl) => {
   try {
@@ -50,12 +51,11 @@ const uploadToCloudinary = async (file, cloudinaryUrl) => {
 };
 
 const saveToLocalUploads = async (file) => {
-  const uploadsDir = path.join(process.cwd(), 'uploads');
-  await fs.mkdir(uploadsDir, { recursive: true });
+  await fs.mkdir(UPLOADS_DIR, { recursive: true });
 
   const ext = path.extname(file.originalname || '') || `.${(file.mimetype.split('/')[1] || 'bin')}`;
   const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
-  const filePath = path.join(uploadsDir, fileName);
+  const filePath = path.join(UPLOADS_DIR, fileName);
 
   await fs.writeFile(filePath, file.buffer);
 

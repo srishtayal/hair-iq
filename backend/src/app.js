@@ -15,6 +15,8 @@ const orderRoutes = require('./routes/orderRoutes');
 const sequelize = require('./config/db');
 
 const app = express();
+const uploadsDir = path.resolve(__dirname, '..', 'uploads');
+const cwdUploadsDir = path.resolve(process.cwd(), 'uploads');
 
 app.use(
   helmet({
@@ -45,7 +47,12 @@ app.use(
   })
 );
 app.use(rateLimiter);
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+app.use('/uploads', express.static(uploadsDir));
+
+// Backward-compatible fallback if files were written relative to cwd in older runs.
+if (cwdUploadsDir !== uploadsDir) {
+  app.use('/uploads', express.static(cwdUploadsDir));
+}
 
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK' });

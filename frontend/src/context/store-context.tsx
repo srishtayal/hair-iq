@@ -1,14 +1,18 @@
 "use client";
 
-import { products } from "@/data/products";
 import { apiRequest } from "@/lib/api";
+import { fetchProducts } from "@/lib/product-api";
 import { auth } from "@/lib/firebase-client";
 import { CartItemType, Product } from "@/types";
 import { User, onAuthStateChanged, signOut } from "firebase/auth";
 import { usePathname, useRouter } from "next/navigation";
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 type StoreContextType = {
+  products: Product[];
+  productsLoading: boolean;
+  productsError: string | null;
+  refreshProducts: () => Promise<void>;
   cartItems: CartItemType[];
   wishlist: string[];
   addToCart: (productId: string, variantId?: string) => void;
@@ -42,8 +46,31 @@ export const StoreProvider = ({ children }: { children: React.ReactNode }) => {
 
   const [cartItems, setCartItems] = useState<CartItemType[]>([]);
   const [wishlist, setWishlist] = useState<string[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [productsError, setProductsError] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
+
+  const refreshProducts = useCallback(async () => {
+    setProductsLoading(true);
+    setProductsError(null);
+
+    try {
+      const items = await fetchProducts();
+      setProducts(items);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to load products";
+      setProductsError(message);
+      setProducts([]);
+    } finally {
+      setProductsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshProducts();
+  }, [refreshProducts]);
 
   useEffect(() => {
     const persistedCart = localStorage.getItem(CART_KEY);
@@ -183,7 +210,7 @@ export const StoreProvider = ({ children }: { children: React.ReactNode }) => {
         const variant = product?.variants.find((v) => v.id === item.variantId);
         return sum + (variant?.price ?? product?.basePrice ?? 0) * item.quantity;
       }, 0),
-    [cartItems]
+    [cartItems, products]
   );
 
   const getCartProduct = (item: CartItemType) => products.find((p) => p.id === item.productId);
@@ -233,6 +260,10 @@ export const StoreProvider = ({ children }: { children: React.ReactNode }) => {
   return (
     <StoreContext.Provider
       value={{
+        products,
+        productsLoading,
+        productsError,
+        refreshProducts,
         cartItems,
         wishlist,
         addToCart,

@@ -11,7 +11,7 @@ export type Product = {
   name: string;
   shortDescription: string;
   description: string;
-  category: "Lace Base" | "Skin Base" | "Maintenance";
+  category: string;
   basePrice: number;
   rating: number;
   reviewCount: number;

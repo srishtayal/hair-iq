@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/common/skeleton";
 import SectionHeader from "@/components/common/section-header";
 import OpenDeliveryPolicy from "@/components/product/open-delivery-policy";
 import ProductCard from "@/components/product/product-card";
-import { products } from "@/data/products";
+import { useStore } from "@/context/store-context";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -12,7 +12,7 @@ type AvailabilityOption = "in-stock" | "out-of-stock";
 type PriceOption = "under-80" | "80-130" | "above-130";
 
 export default function ProductsPage() {
-  const [loading, setLoading] = useState(true);
+  const { products, productsLoading, productsError } = useStore();
   const [selectedSort, setSelectedSort] = useState("featured");
   const [activeFilter, setActiveFilter] = useState<"availability" | "price" | null>(null);
 
@@ -20,12 +20,6 @@ export default function ProductsPage() {
   const [selectedPrice, setSelectedPrice] = useState<PriceOption[]>([]);
 
   const filterRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    setLoading(true);
-    const timeout = setTimeout(() => setLoading(false), 500);
-    return () => clearTimeout(timeout);
-  }, [selectedSort, selectedAvailability, selectedPrice]);
 
   useEffect(() => {
     const onClickOutside = (event: MouseEvent) => {
@@ -44,8 +38,8 @@ export default function ProductsPage() {
     return product?.variants.some((variant) => variant.stock > 0) ?? false;
   };
 
-  const inStockCount = useMemo(() => products.filter((product) => isInStock(product.id)).length, []);
-  const outOfStockCount = useMemo(() => products.filter((product) => !isInStock(product.id)).length, []);
+  const outOfStockCount = useMemo(() => products.filter((product) => !isInStock(product.id)).length, [products]);
+  const inStockTotal = useMemo(() => products.filter((product) => isInStock(product.id)).length, [products]);
 
   const toggleAvailability = (value: AvailabilityOption) => {
     setSelectedAvailability((prev) => (prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value]));
@@ -79,7 +73,7 @@ export default function ProductsPage() {
       if (selectedSort === "rating") return b.rating - a.rating;
       return Number(b.featured ?? false) - Number(a.featured ?? false);
     });
-  }, [selectedSort, selectedAvailability, selectedPrice]);
+  }, [products, selectedSort, selectedAvailability, selectedPrice]);
 
   return (
     <div className="pt-12 space-y-8">
@@ -150,7 +144,7 @@ export default function ProductsPage() {
                     onChange={() => toggleAvailability("in-stock")}
                     className="h-4 w-4 rounded border-black/30"
                   />
-                  In stock ({inStockCount})
+                  In stock ({inStockTotal})
                 </label>
                 <label className="flex cursor-pointer items-center gap-3 text-base text-coal">
                   <input
@@ -207,10 +201,12 @@ export default function ProductsPage() {
         </div>
 
         <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-          {loading
+          {productsLoading
             ? Array.from({ length: 6 }).map((_, idx) => <Skeleton key={idx} className="h-[360px]" />)
             : filteredProducts.map((product) => <ProductCard key={product.id} product={product} />)}
         </div>
+
+        {!productsLoading && productsError ? <p className="text-sm text-red-600">{productsError}</p> : null}
       </div>
 
       <OpenDeliveryPolicy />

@@ -51,7 +51,45 @@ const pickThumbnail = (media) => {
   if (!media || !media.length) return null;
   const images = media.filter((item) => item.type === 'image').sort((a, b) => a.sortOrder - b.sortOrder);
   if (images.length) return images[0].url;
-  return media.sort((a, b) => a.sortOrder - b.sortOrder)[0]?.url || null;
+  return [...media].sort((a, b) => a.sortOrder - b.sortOrder)[0]?.url || null;
+};
+
+const serializeVariant = (variant) => ({
+  id: variant.id,
+  size: variant.size,
+  color: variant.color,
+  density: variant.density,
+  price: variant.price,
+  stockQuantity: variant.stockQuantity,
+  sku: variant.sku,
+});
+
+const serializeMedia = (media) => ({
+  id: media.id,
+  type: media.type,
+  url: media.url,
+  sortOrder: media.sortOrder,
+});
+
+const mapProductWithDetails = (product) => {
+  const variants = [...(product.variants || [])].sort((a, b) => a.price - b.price);
+  const media = [...(product.media || [])].sort((a, b) => a.sortOrder - b.sortOrder);
+  const topVariant = pickTopVariant(variants);
+  const thumbnail = pickThumbnail(media);
+
+  return {
+    id: product.id,
+    name: product.name,
+    slug: product.slug,
+    description: product.description,
+    category: product.category,
+    isActive: product.isActive,
+    quantity: product.quantity,
+    thumbnail,
+    topVariant: topVariant ? serializeVariant(topVariant) : null,
+    variants: variants.map(serializeVariant),
+    media: media.map(serializeMedia),
+  };
 };
 
 const getProducts = async ({ page = 1, limit = 12, search = '', category = '' }) => {
@@ -92,32 +130,7 @@ const getProducts = async ({ page = 1, limit = 12, search = '', category = '' })
     ],
   });
 
-  const items = result.rows.map((product) => {
-    const topVariant = pickTopVariant(product.variants || []);
-    const thumbnail = pickThumbnail(product.media || []);
-
-    return {
-      id: product.id,
-      name: product.name,
-      slug: product.slug,
-      description: product.description,
-      category: product.category,
-      isActive: product.isActive,
-      quantity: product.quantity,
-      thumbnail,
-      topVariant: topVariant
-        ? {
-            id: topVariant.id,
-            size: topVariant.size,
-            color: topVariant.color,
-            density: topVariant.density,
-            price: topVariant.price,
-            stockQuantity: topVariant.stockQuantity,
-            sku: topVariant.sku,
-          }
-        : null,
-    };
-  });
+  const items = result.rows.map((product) => mapProductWithDetails(product));
 
   return {
     items,
@@ -157,7 +170,7 @@ const getProductBySlug = async (slug) => {
     throw createError('Product not found', 404);
   }
 
-  return product;
+  return mapProductWithDetails(product);
 };
 
 const createProduct = async ({ name, description, category, isActive = true }) => {

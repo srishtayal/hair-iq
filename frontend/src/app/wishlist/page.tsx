@@ -3,13 +3,12 @@
 import EmptyState from "@/components/common/empty-state";
 import SectionHeader from "@/components/common/section-header";
 import { useStore } from "@/context/store-context";
-import { products } from "@/data/products";
 import { currency } from "@/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
 
 export default function WishlistPage() {
-  const { wishlist, moveWishlistToCart, toggleWishlist, authReady, isAuthenticated, goToAuth } = useStore();
+  const { products, productsLoading, wishlist, moveWishlistToCart, toggleWishlist, authReady, isAuthenticated, goToAuth } = useStore();
   const wishlistProducts = products.filter((product) => wishlist.includes(product.id));
 
   if (!authReady) {
@@ -36,14 +35,20 @@ export default function WishlistPage() {
     <div className="pt-12 space-y-8">
       <SectionHeader eyebrow="Wishlist" title="Saved for later" description="Move saved items to cart whenever you're ready." />
 
-      {!wishlistProducts.length ? (
+      {productsLoading ? (
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-soft">
+          <p className="text-sm text-gray-600">Loading wishlist items...</p>
+        </div>
+      ) : null}
+
+      {!productsLoading && !wishlistProducts.length ? (
         <EmptyState
           title="Wishlist is empty"
           description="Save your favorite units and care products for quick access."
           ctaLabel="Browse products"
           ctaHref="/products"
         />
-      ) : (
+      ) : !productsLoading ? (
         <div className="grid gap-4 md:grid-cols-2">
           {wishlistProducts.map((product) => (
             <article key={product.id} className="flex gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 shadow-soft">
@@ -72,7 +77,7 @@ export default function WishlistPage() {
             </article>
           ))}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
