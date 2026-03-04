@@ -83,10 +83,12 @@ export default function Navbar() {
           <span className="mx-6">Flat 20% Off On HD Skin Base</span>
           <span className="mx-6">Buy 1 Get Maintenance Kit At 50% Off</span>
           <span className="mx-6">Use Code HIQ25 On Orders Above $150</span>
+          <span className="mx-6">Chat On WhatsApp For Support: +91 98735 04614</span>
           <span className="mx-6">Express Shipping Available Across India & US</span>
           <span className="mx-6">Flat 20% Off On HD Skin Base</span>
           <span className="mx-6">Buy 1 Get Maintenance Kit At 50% Off</span>
           <span className="mx-6">Use Code HIQ25 On Orders Above $150</span>
+          <span className="mx-6">Chat On WhatsApp For Support: +91 98735 04614</span>
           <span className="mx-6">Express Shipping Available Across India & US</span>
         </div>
       </div>
