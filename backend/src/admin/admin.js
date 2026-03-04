@@ -58,6 +58,7 @@ const mountAdmin = async (app) => {
 
   const admin = new AdminJS({
     rootPath: '/admin',
+    componentLoader,
     branding: {
       companyName: 'HairIQ Admin',
     },
