@@ -6,10 +6,65 @@ import VideoModal from "@/components/video/video-modal";
 import { videos } from "@/data/videos";
 import { Video } from "@/types";
 import Link from "next/link";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 export default function VideoPreview() {
   const [activeVideo, setActiveVideo] = useState<Video | null>(null);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+  const [visibilityRatios, setVisibilityRatios] = useState<Record<string, number>>({});
+  const [autoPreviewVideoId, setAutoPreviewVideoId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const pointerQuery = window.matchMedia("(pointer: coarse)");
+    const updateTouchState = () => {
+      setIsTouchDevice(pointerQuery.matches || navigator.maxTouchPoints > 0);
+    };
+
+    updateTouchState();
+    pointerQuery.addEventListener("change", updateTouchState);
+
+    return () => {
+      pointerQuery.removeEventListener("change", updateTouchState);
+    };
+  }, []);
+
+  const handleVisibilityChange = useCallback((videoId: string, ratio: number) => {
+    setVisibilityRatios((previous) => {
+      if ((previous[videoId] ?? 0) === ratio) return previous;
+      return { ...previous, [videoId]: ratio };
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!isTouchDevice || activeVideo) {
+      setAutoPreviewVideoId(null);
+      return;
+    }
+
+    const minFocusRatio = 0.55;
+    const focusedEntries = Object.entries(visibilityRatios).filter(([, ratio]) => ratio >= minFocusRatio);
+
+    if (!focusedEntries.length) {
+      setAutoPreviewVideoId(null);
+      return;
+    }
+
+    focusedEntries.sort((a, b) => b[1] - a[1]);
+    const [topId, topRatio] = focusedEntries[0];
+
+    setAutoPreviewVideoId((currentId) => {
+      if (!currentId) return topId;
+      const currentRatio = visibilityRatios[currentId] ?? 0;
+      if (currentRatio >= minFocusRatio && currentRatio + 0.05 >= topRatio) {
+        return currentId;
+      }
+      return topId;
+    });
+  }, [activeVideo, isTouchDevice, visibilityRatios]);
+
+  const autoPreviewEnabled = isTouchDevice && !activeVideo;
 
   return (
     <section className="space-y-8">
@@ -22,7 +77,13 @@ export default function VideoPreview() {
       <div className="flex snap-x gap-5 overflow-x-auto pb-2 bg-transparent">
         {videos.slice(0, 4).map((video) => (
           <div key={video.id} className="min-w-[200px] flex-1 snap-start md:min-w-[260px]">
-            <VideoCard video={video} onPlay={setActiveVideo} />
+            <VideoCard
+              video={video}
+              onPlay={setActiveVideo}
+              autoPreviewEnabled={autoPreviewEnabled}
+              isAutoFocused={autoPreviewVideoId === video.id}
+              onVisibilityChange={handleVisibilityChange}
+            />
           </div>
         ))}
       </div>

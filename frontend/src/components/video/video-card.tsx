@@ -5,19 +5,64 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
-export default function VideoCard({ video, onPlay }: { video: Video; onPlay: (video: Video) => void }) {
-  const [isPreviewing, setIsPreviewing] = useState(false);
+type VideoCardProps = {
+  video: Video;
+  onPlay: (video: Video) => void;
+  autoPreviewEnabled?: boolean;
+  isAutoFocused?: boolean;
+  onVisibilityChange?: (videoId: string, ratio: number) => void;
+};
+
+export default function VideoCard({
+  video,
+  onPlay,
+  autoPreviewEnabled = false,
+  isAutoFocused = false,
+  onVisibilityChange
+}: VideoCardProps) {
+  const [isManualPreviewing, setIsManualPreviewing] = useState(false);
+  const cardRef = useRef<HTMLArticleElement | null>(null);
   const previewRef = useRef<HTMLVideoElement | null>(null);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const startedFromLongPressRef = useRef(false);
+  const lastLongPressAtRef = useRef(0);
 
   const canPreviewInline = /\.(mp4|webm|ogg)(\?|$)/i.test(video.embedUrl);
+  const shouldPreview = isManualPreviewing || (autoPreviewEnabled && isAutoFocused);
+
+  useEffect(() => {
+    if (!onVisibilityChange) return;
+
+    if (!canPreviewInline || !autoPreviewEnabled) {
+      onVisibilityChange(video.id, 0);
+      return;
+    }
+
+    const node = cardRef.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        onVisibilityChange(video.id, entry.isIntersecting ? entry.intersectionRatio : 0);
+      },
+      {
+        threshold: [0, 0.25, 0.5, 0.65, 0.8, 1]
+      }
+    );
+
+    observer.observe(node);
+
+    return () => {
+      observer.disconnect();
+      onVisibilityChange(video.id, 0);
+    };
+  }, [autoPreviewEnabled, canPreviewInline, onVisibilityChange, video.id]);
 
   useEffect(() => {
     const media = previewRef.current;
     if (!media) return;
 
-    if (isPreviewing) {
+    if (shouldPreview) {
       const playPromise = media.play();
       if (playPromise && typeof playPromise.catch === "function") {
         playPromise.catch(() => {});
@@ -27,7 +72,7 @@ export default function VideoCard({ video, onPlay }: { video: Video; onPlay: (vi
 
     media.pause();
     media.currentTime = 0;
-  }, [isPreviewing]);
+  }, [shouldPreview]);
 
   useEffect(() => {
     return () => {
@@ -45,33 +90,39 @@ export default function VideoCard({ video, onPlay }: { video: Video; onPlay: (vi
 
   const handlePointerEnter = (pointerType: string) => {
     if (!canPreviewInline || pointerType !== "mouse") return;
-    setIsPreviewing(true);
+    setIsManualPreviewing(true);
   };
 
   const handlePointerLeave = (pointerType: string) => {
     if (!canPreviewInline || pointerType !== "mouse") return;
     clearHoldTimer();
-    setIsPreviewing(false);
+    setIsManualPreviewing(false);
   };
 
   const handlePointerDown = (pointerType: string) => {
     if (!canPreviewInline || pointerType !== "touch") return;
     clearHoldTimer();
     holdTimerRef.current = setTimeout(() => {
-      startedFromLongPressRef.current = true;
-      setIsPreviewing(true);
+      lastLongPressAtRef.current = Date.now();
+      setIsManualPreviewing(true);
     }, 250);
+  };
+
+  const handlePointerMove = (pointerType: string) => {
+    if (!canPreviewInline || pointerType !== "touch") return;
+    if (Date.now() - lastLongPressAtRef.current > 350) {
+      clearHoldTimer();
+    }
   };
 
   const handlePointerUpOrCancel = (pointerType: string) => {
     if (!canPreviewInline || pointerType !== "touch") return;
     clearHoldTimer();
-    setIsPreviewing(false);
+    setIsManualPreviewing(false);
   };
 
   const handleOpenVideo = () => {
-    if (startedFromLongPressRef.current) {
-      startedFromLongPressRef.current = false;
+    if (Date.now() - lastLongPressAtRef.current < 500) {
       return;
     }
     onPlay(video);
@@ -79,11 +130,13 @@ export default function VideoCard({ video, onPlay }: { video: Video; onPlay: (vi
 
   return (
     <motion.article
+      ref={cardRef}
       whileHover={{ y: -4 }}
       className="group overflow-hidden rounded-2xl border border-graphite/10 bg-transparent"
       onPointerEnter={(event) => handlePointerEnter(event.pointerType)}
       onPointerLeave={(event) => handlePointerLeave(event.pointerType)}
       onPointerDown={(event) => handlePointerDown(event.pointerType)}
+      onPointerMove={(event) => handlePointerMove(event.pointerType)}
       onPointerUp={(event) => handlePointerUpOrCancel(event.pointerType)}
       onPointerCancel={(event) => handlePointerUpOrCancel(event.pointerType)}
     >
@@ -105,7 +158,7 @@ export default function VideoCard({ video, onPlay }: { video: Video; onPlay: (vi
           alt={video.title}
           fill
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          className={`object-cover transition duration-500 group-hover:scale-105 ${isPreviewing ? "opacity-0" : "opacity-100"}`}
+          className={`object-cover transition duration-500 group-hover:scale-105 ${shouldPreview ? "opacity-0" : "opacity-100"}`}
         />
         {canPreviewInline ? (
           <video
@@ -115,7 +168,7 @@ export default function VideoCard({ video, onPlay }: { video: Video; onPlay: (vi
             loop
             playsInline
             preload="metadata"
-            className={`pointer-events-none absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${isPreviewing ? "opacity-100" : "opacity-0"}`}
+            className={`pointer-events-none absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${shouldPreview ? "opacity-100" : "opacity-0"}`}
           />
         ) : null}
         <div className="absolute inset-0 bg-transparent" />
