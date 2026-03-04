@@ -14,6 +14,9 @@ export default function VideoModal({
   embedUrl: string;
   title: string;
 }) {
+  const isExternalEmbed = /^https?:\/\/(?:www\.)?(youtube\.com|youtu\.be|player\.vimeo\.com)/i.test(embedUrl);
+  const autoplayUrl = embedUrl.includes("?") ? `${embedUrl}&autoplay=1` : `${embedUrl}?autoplay=1`;
+
   return (
     <AnimatePresence>
       {open ? (
@@ -38,15 +41,19 @@ export default function VideoModal({
             </button>
             <p className="mb-3 text-sm font-semibold text-coal">{title}</p>
             <div className="aspect-video overflow-hidden rounded-xl">
-              <iframe
-                width="100%"
-                height="100%"
-                src={open ? `${embedUrl}?autoplay=1` : undefined}
-                title={title}
-                loading="lazy"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
+              {isExternalEmbed ? (
+                <iframe
+                  width="100%"
+                  height="100%"
+                  src={open ? autoplayUrl : undefined}
+                  title={title}
+                  loading="lazy"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              ) : (
+                <video className="h-full w-full bg-black" src={embedUrl} controls autoPlay playsInline />
+              )}
             </div>
           </motion.div>
         </motion.div>
