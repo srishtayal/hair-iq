@@ -21,7 +21,7 @@ export default function VideoCard({
   onVisibilityChange
 }: VideoCardProps) {
   const [isManualPreviewing, setIsManualPreviewing] = useState(false);
-  const cardRef = useRef<HTMLArticleElement | null>(null);
+  const cardRef = useRef<HTMLElement | null>(null);
   const previewRef = useRef<HTMLVideoElement | null>(null);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastLongPressAtRef = useRef(0);
