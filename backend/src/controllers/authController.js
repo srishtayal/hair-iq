@@ -22,6 +22,23 @@ const isProfileIncomplete = (user) => {
   return missingName || missingPhone;
 };
 
+const mapFirebaseErrorToStatus = (error) => {
+  const code = error?.code || '';
+
+  if (
+    code === 'auth/argument-error' ||
+    code === 'auth/invalid-id-token' ||
+    code === 'auth/id-token-expired' ||
+    code === 'auth/id-token-revoked' ||
+    code === 'auth/user-disabled' ||
+    code === 'auth/user-not-found'
+  ) {
+    return 401;
+  }
+
+  return 500;
+};
+
 const verifyFirebase = async (req, res, next) => {
   try {
     const { idToken } = req.body;
@@ -96,6 +113,14 @@ const verifyFirebase = async (req, res, next) => {
       data: buildAuthResponse(user, token, needsProfile, isNewUser),
     });
   } catch (error) {
+    if (error?.code?.startsWith?.('auth/')) {
+      const status = mapFirebaseErrorToStatus(error);
+      return res.status(status).json({
+        success: false,
+        message: `Firebase auth failed (${error.code})`,
+      });
+    }
+
     return next(error);
   }
 };
