@@ -16,6 +16,15 @@ const createOrder = async (req, res, next) => {
   }
 };
 
+const getOrders = async (req, res, next) => {
+  try {
+    const data = await orderService.getOrdersByUser(req.user.id);
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 const createPaymentOrder = async (req, res, next) => {
   try {
     const data = await orderService.createPaymentOrder({
@@ -93,6 +102,7 @@ const razorpayWebhook = async (req, res, next) => {
 module.exports = {
   createPaymentOrder,
   createOrder,
+  getOrders,
   verifyPaymentSignature,
   razorpayWebhook,
 };

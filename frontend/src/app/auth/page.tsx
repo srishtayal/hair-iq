@@ -41,7 +41,7 @@ export default function AuthPage() {
   const [showRecaptcha, setShowRecaptcha] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [nextPath, setNextPath] = useState<string>(() => "/");
+  const [nextPath, setNextPath] = useState<string>(() => "/profile");
   const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
   const otpRequestInFlightRef = useRef(false);
 
@@ -52,9 +52,9 @@ export default function AuthPage() {
       if (typeof window === "undefined") return;
       const params = new URLSearchParams(window.location.search);
       const next = params.get("next");
-      setNextPath(next && next.startsWith("/") ? next : "/");
+      setNextPath(next && next.startsWith("/") ? next : "/profile");
     } catch {
-      setNextPath("/");
+      setNextPath("/profile");
     }
   }, []);
 

@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const Razorpay = require('razorpay');
 const sequelize = require('../config/db');
-const { Address, Cart, CartItem, Coupon, Order, OrderItem, Payment, ProductVariant } = require('../models');
+const { Address, Cart, CartItem, Coupon, Order, OrderItem, Payment, Product, ProductVariant } = require('../models');
 
 const createError = (message, statusCode = 400) => {
   const error = new Error(message);
@@ -256,6 +256,86 @@ const createOrder = async ({ userId, cartId, items, addressId, couponCode }) => 
   return result;
 };
 
+const getOrdersByUser = async (userId) => {
+  const orders = await Order.findAll({
+    where: { userId },
+    order: [['createdAt', 'DESC']],
+    include: [
+      {
+        model: Address,
+        as: 'address',
+        attributes: ['id', 'fullName', 'phone', 'addressLine1', 'addressLine2', 'city', 'state', 'pincode', 'isDefault'],
+      },
+      {
+        model: OrderItem,
+        as: 'items',
+        include: [
+          {
+            model: ProductVariant,
+            as: 'productVariant',
+            attributes: ['id', 'size', 'color', 'density', 'price', 'sku'],
+            include: [
+              {
+                model: Product,
+                as: 'product',
+                attributes: ['id', 'name', 'slug', 'category'],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  return orders.map((order) => ({
+    id: order.id,
+    createdAt: order.createdAt,
+    totalAmount: order.totalAmount,
+    shippingAmount: order.shippingAmount,
+    discountAmount: order.discountAmount,
+    paymentStatus: order.paymentStatus,
+    orderStatus: order.orderStatus,
+    trackingId: order.trackingId,
+    totalItems: (order.items || []).reduce((sum, item) => sum + item.quantity, 0),
+    address: order.address
+      ? {
+          id: order.address.id,
+          fullName: order.address.fullName,
+          phone: order.address.phone,
+          addressLine1: order.address.addressLine1,
+          addressLine2: order.address.addressLine2,
+          city: order.address.city,
+          state: order.address.state,
+          pincode: order.address.pincode,
+          isDefault: order.address.isDefault,
+        }
+      : null,
+    items: (order.items || []).map((item) => ({
+      id: item.id,
+      quantity: item.quantity,
+      priceAtPurchase: item.priceAtPurchase,
+      variant: item.productVariant
+        ? {
+            id: item.productVariant.id,
+            size: item.productVariant.size,
+            color: item.productVariant.color,
+            density: item.productVariant.density,
+            price: item.productVariant.price,
+            sku: item.productVariant.sku,
+          }
+        : null,
+      product: item.productVariant?.product
+        ? {
+            id: item.productVariant.product.id,
+            name: item.productVariant.product.name,
+            slug: item.productVariant.product.slug,
+            category: item.productVariant.product.category,
+          }
+        : null,
+    })),
+  }));
+};
+
 const verifyRazorpayWebhookSignature = ({ rawBody, signature }) => {
   const secret = process.env.RAZORPAY_KEY_SECRET;
   if (!secret) {
@@ -353,6 +433,7 @@ const processPaymentCaptured = async (payload) => {
 module.exports = {
   createPaymentOrder,
   createOrder,
+  getOrdersByUser,
   verifyRazorpayPaymentSignature,
   verifyRazorpayWebhookSignature,
   processPaymentCaptured,

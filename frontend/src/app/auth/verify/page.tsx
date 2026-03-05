@@ -1,7 +1,6 @@
 "use client";
 
 import SectionHeader from "@/components/common/section-header";
-import { useStore } from "@/context/store-context";
 import { apiRequest } from "@/lib/api";
 import { auth } from "@/lib/firebase-client";
 import { FirebaseError } from "firebase/app";
@@ -23,42 +22,24 @@ const SERVER_USER_KEY = "hairiq_server_user";
 
 export default function VerifyOtpPage() {
   const router = useRouter();
-  const { user, authReady } = useStore();
 
   const [otpDigits, setOtpDigits] = useState<string[]>(Array.from({ length: OTP_LENGTH }, () => ""));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
-  const [nextPath, setNextPath] = useState<string>(() => "/");
   const [phoneFromQuery, setPhoneFromQuery] = useState<string>("");
   const [verificationId, setVerificationId] = useState<string | null>(null);
-  const [needsProfile, setNeedsProfile] = useState(false);
-  const [serverToken, setServerToken] = useState("");
-  const [profileName, setProfileName] = useState("");
-  const [profilePhone, setProfilePhone] = useState("");
-  const [profileEmail, setProfileEmail] = useState("");
   const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
 
   useEffect(() => {
     try {
       if (typeof window === "undefined") return;
       const params = new URLSearchParams(window.location.search);
-      const next = params.get("next");
       const phone = params.get("phone");
-      setNextPath(next && next.startsWith("/") ? next : "/");
       setPhoneFromQuery(phone || "");
     } catch {
-      setNextPath("/");
       setPhoneFromQuery("");
     }
   }, []);
-
-  useEffect(() => {
-    if (!authReady) return;
-    if (user && !needsProfile) {
-      router.replace(nextPath);
-    }
-  }, [authReady, nextPath, router, user, needsProfile]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -134,7 +115,6 @@ export default function VerifyOtpPage() {
   const verifyOtp = async (event: FormEvent) => {
     event.preventDefault();
     setError("");
-    setMessage("");
 
     if (!verificationId) {
       setError("Session expired. Please request OTP again.");
@@ -162,65 +142,16 @@ export default function VerifyOtpPage() {
         body: JSON.stringify({ idToken }),
       });
 
-      const payload = response.data;
-      const storedPhone = sessionStorage.getItem(AUTH_PHONE_KEY) || "";
-      localStorage.setItem("hairiq_server_token", payload.token);
-      localStorage.setItem(SERVER_USER_KEY, JSON.stringify(payload.user));
+      localStorage.setItem("hairiq_server_token", response.data.token);
+      localStorage.setItem(SERVER_USER_KEY, JSON.stringify(response.data.user));
       sessionStorage.removeItem(AUTH_VERIFICATION_ID_KEY);
       sessionStorage.removeItem(AUTH_PHONE_KEY);
 
-      if (payload.needsProfile) {
-        setNeedsProfile(true);
-        setServerToken(payload.token);
-        setProfileName(payload.user.name === "User" ? "" : payload.user.name || "");
-        setProfilePhone(payload.user.phone || phoneFromQuery || storedPhone);
-        setProfileEmail(payload.user.email || "");
-        setMessage("Please complete your profile to continue.");
-        return;
-      }
-
-      router.replace(nextPath);
+      router.replace("/profile");
     } catch (verifyError) {
       const firebaseError = verifyError as FirebaseError;
       const code = firebaseError?.code ?? "unknown";
       setError(`OTP verification failed (${code}).`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const submitProfile = async (event: FormEvent) => {
-    event.preventDefault();
-    setError("");
-    setMessage("");
-
-    if (!profileName.trim() || !profilePhone.trim()) {
-      setError("Name and mobile number are required.");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const response = await apiRequest<{ success: true; data: AuthPayload }>(
-        "/auth/complete-profile",
-        {
-          method: "PUT",
-          body: JSON.stringify({
-            name: profileName.trim(),
-            phone: profilePhone.trim(),
-            email: profileEmail.trim() || null,
-          }),
-        },
-        serverToken
-      );
-
-      localStorage.setItem("hairiq_server_token", response.data.token);
-      localStorage.setItem(SERVER_USER_KEY, JSON.stringify(response.data.user));
-      setNeedsProfile(false);
-      router.replace(nextPath);
-    } catch (profileError) {
-      const apiError = profileError as Error;
-      setError(apiError.message || "Failed to complete profile.");
     } finally {
       setLoading(false);
     }
@@ -265,45 +196,10 @@ export default function VerifyOtpPage() {
           </button>
         </form>
 
-        <button onClick={() => router.replace(`/auth?next=${encodeURIComponent(nextPath)}`)} className="text-sm text-coal underline underline-offset-4">
+        <button onClick={() => router.replace("/auth")} className="text-sm text-coal underline underline-offset-4">
           Change mobile number
         </button>
 
-        {needsProfile ? (
-          <form className="space-y-3 rounded-xl border border-black/10 bg-white/70 p-4" onSubmit={submitProfile}>
-            <p className="text-sm font-medium text-coal">Complete your profile</p>
-            <input
-              type="text"
-              value={profileName}
-              onChange={(event) => setProfileName(event.target.value)}
-              className="w-full rounded-xl border border-black/15 bg-white px-4 py-3 text-sm text-coal outline-none focus:border-coal"
-              placeholder="Full name"
-            />
-            <input
-              type="tel"
-              value={profilePhone}
-              onChange={(event) => setProfilePhone(event.target.value)}
-              className="w-full rounded-xl border border-black/15 bg-white px-4 py-3 text-sm text-coal outline-none focus:border-coal"
-              placeholder="Mobile number with country code"
-            />
-            <input
-              type="email"
-              value={profileEmail}
-              onChange={(event) => setProfileEmail(event.target.value)}
-              className="w-full rounded-xl border border-black/15 bg-white px-4 py-3 text-sm text-coal outline-none focus:border-coal"
-              placeholder="Email (optional)"
-            />
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-full bg-coal px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
-            >
-              {loading ? "Saving..." : "Save & Continue"}
-            </button>
-          </form>
-        ) : null}
-
-        {message ? <p className="text-sm text-green-700">{message}</p> : null}
         {error ? <p className="text-sm text-red-700">{error}</p> : null}
       </div>
     </div>

@@ -71,7 +71,7 @@ export default function HeroSection() {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0.4, scale: 0.98 }}
             transition={{ duration: 0.5 }}
-            className="relative h-[calc(100vh-180px)] min-h-[560px] w-full md:h-[calc(100vh-200px)] md:min-h-[680px]"
+            className="relative aspect-[16/9] w-full"
           >
             <Image
               src={activeOffer.image}
