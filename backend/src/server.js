@@ -12,7 +12,10 @@ const startServer = async () => {
   try {
     await sequelize.authenticate();
     // NOTE: Keep only for local/dev quick testing. Remove in production.
-    await sequelize.sync({ alter: true });
+    if (process.env.NODE_ENV !== 'production') {
+      await sequelize.sync({ alter: true });
+    }
+
 
     const adminInfo = await mountAdmin(app);
 
