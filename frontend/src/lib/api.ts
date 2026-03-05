@@ -18,7 +18,10 @@ export async function apiRequest<T>(
     headers.Authorization = `Bearer ${idToken}`;
   }
 
-  const response = await fetch(`${baseUrl}${path}`, {
+  const normalizedBaseUrl = baseUrl.replace(/\/+$/, "");
+  const normalizedPath = `/${path.replace(/^\/+/, "")}`;
+
+  const response = await fetch(`${normalizedBaseUrl}${normalizedPath}`, {
     ...options,
     headers,
   });
