@@ -2,33 +2,89 @@ import SectionHeader from "@/components/common/section-header";
 
 const faqs = [
   {
-    question: "What is Hair IQ's delivery process?",
+    question: "What is a hair patch?",
     answer:
-      "We deliver directly from our factory in Bangladesh to your doorstep. Once you place an order, we ship it promptly, and you can track it every step of the way."
+      "A hair patch is a non-surgical hair replacement system designed for people experiencing hair loss. It is attached to the scalp using medical-grade adhesive or clips to give a natural hair look."
   },
   {
-    question: "How do you ensure the best pricing?",
+    question: "Will the hair patch look natural?",
     answer:
-      "We guarantee the lowest prices by sourcing directly with no middlemen, so we pass the savings straight to you."
+      "Yes. Our hair patches are designed with natural hairlines, scalp-like base material, and real human hair to ensure a natural appearance."
+  },
+  {
+    question: "Is it real hair or synthetic hair?",
+    answer: "We use 100% human hair for a natural look, styling flexibility, and durability."
+  },
+  {
+    question: "Can I style the hair patch like normal hair?",
+    answer: "Yes. You can cut, style, and set the hair patch just like natural hair."
+  },
+  {
+    question: "How long does a hair patch last?",
+    answer: "Depending on usage and maintenance, a hair patch usually lasts 8-10 months."
+  },
+  {
+    question: "Do you offer Cash on Delivery (COD)?",
+    answer: "Yes, we offer COD with open delivery, so you can check the hair patch quality before making payment."
   },
   {
     question: "What is open delivery?",
+    answer: "Open delivery means you can inspect the product in front of the courier partner before paying."
+  },
+  {
+    question: "What if I don't like the patch during open delivery?",
     answer:
-      "Open delivery means you can inspect your patch before confirming acceptance. There are no hidden surprises and complete transparency."
+      "If you are not satisfied with the product, you can return it immediately to the courier partner without paying anything."
   },
   {
     question: "How long does delivery take?",
-    answer:
-      "Delivery times vary, but we aim to get your patch to you as quickly as possible. Once shipped, we keep you updated with estimated timelines."
+    answer: "Delivery usually takes 2-5 days depending on your location."
   },
   {
-    question: "Can I return or exchange my patch?",
-    answer: "We do not accept returns since we offer open delivery, which lets you check the product upon arrival."
+    question: "How is the hair patch installed?",
+    answer: "The hair patch is installed using skin-safe adhesives or tapes for a strong and comfortable hold."
   },
   {
-    question: "Is there a customer support contact?",
+    question: "Do you provide installation service?",
+    answer: "Yes. Our trained technicians can visit your home to install the hair patch professionally."
+  },
+  {
+    question: "How long does the installation take?",
+    answer: "Installation usually takes 45-60 minutes."
+  },
+  {
+    question: "Can I wash the hair patch?",
+    answer: "Yes, you can wash it like normal hair using mild shampoo."
+  },
+  {
+    question: "Can I sleep, shower, or exercise with the patch?",
+    answer: "Yes, once installed properly, you can sleep, shower, and do regular activities comfortably."
+  },
+  {
+    question: "How often do I need maintenance?",
+    answer: "Maintenance is recommended every 3-4 weeks."
+  },
+  {
+    question: "Why are your hair patches cheaper than other centers?",
     answer:
-      "Yes. You can reach us via WhatsApp chat or at support@hairiq.in, and our team will respond as soon as possible."
+      "We work directly with factory-level sourcing (including Bangladesh factory) which helps us provide premium patches at factory prices."
+  },
+  {
+    question: "Are there different types of hair patches?",
+    answer:
+      "Yes, we offer multiple types such as lace, mono, and skin base patches depending on your hair loss and styling preference."
+  },
+  {
+    question: "Will anyone be able to tell I am wearing a hair patch?",
+    answer: "No. When installed correctly and styled properly, it looks completely natural."
+  },
+  {
+    question: "Is it safe for the scalp?",
+    answer: "Yes. We use skin-friendly tapes and adhesives that are safe for the scalp."
+  },
+  {
+    question: "Can I remove the patch myself?",
+    answer: "Yes, but we recommend professional maintenance for better longevity and proper reattachment."
   }
 ];
 

@@ -4,6 +4,7 @@ import EmptyState from "@/components/common/empty-state";
 import RatingStars from "@/components/common/rating-stars";
 import SectionHeader from "@/components/common/section-header";
 import OpenDeliveryPolicy from "@/components/product/open-delivery-policy";
+import ProductCard from "@/components/product/product-card";
 import ReviewCard from "@/components/review/review-card";
 import { useStore } from "@/context/store-context";
 import { reviews } from "@/data/reviews";
@@ -127,6 +128,14 @@ export default function ProductDetailPage() {
   }, [slug]);
 
   const resolvedProduct = product ?? fallbackProduct;
+  const similarProducts = useMemo(() => {
+    if (!resolvedProduct) return [];
+
+    const sameCategory = products.filter((item) => item.id !== resolvedProduct.id && item.category === resolvedProduct.category);
+    const otherProducts = products.filter((item) => item.id !== resolvedProduct.id && item.category !== resolvedProduct.category);
+
+    return [...sameCategory, ...otherProducts].slice(0, 3);
+  }, [products, resolvedProduct]);
 
   useEffect(() => {
     setSelectedImage(0);
@@ -313,9 +322,20 @@ export default function ProductDetailPage() {
 
         <section className="space-y-6">
           <SectionHeader eyebrow="Reviews" title="Customer feedback" />
-          <div className="grid gap-5 md:grid-cols-3">
-            {reviews.map((review) => (
-              <ReviewCard key={review.id} review={review} />
+          <div className="flex gap-5 overflow-x-auto pb-2 [scrollbar-width:thin]">
+            {reviews.slice(0, 7).map((review) => (
+              <div key={review.id} className="w-[300px] min-w-[300px] sm:w-[340px] sm:min-w-[340px]">
+                <ReviewCard review={review} />
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="space-y-6">
+          <SectionHeader eyebrow="More To Explore" title="Similar products" />
+          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            {similarProducts.map((similarProduct) => (
+              <ProductCard key={similarProduct.id} product={similarProduct} />
             ))}
           </div>
         </section>
