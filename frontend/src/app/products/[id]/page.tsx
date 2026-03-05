@@ -14,6 +14,66 @@ import Image from "next/image";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+type DeliveryLookup = Record<string, string>;
+
+const PINCODE_REGEX = /^\d{6}$/;
+const FAST_DELIVERY_STATES = new Set(["DELHI", "HARYANA", "UP", "UTTAR PRADESH"]);
+
+const sanitizeCell = (value: string) => value.replace(/^"|"$/g, "").trim();
+
+const splitCsvLine = (line: string) => {
+  const cells: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+
+    if (char === '"') {
+      inQuotes = !inQuotes;
+      continue;
+    }
+
+    if (char === "," && !inQuotes) {
+      cells.push(current);
+      current = "";
+      continue;
+    }
+
+    current += char;
+  }
+
+  cells.push(current);
+  return cells;
+};
+
+const parseDeliveryLookup = (rawCsv: string): DeliveryLookup => {
+  const lookup: DeliveryLookup = {};
+  const lines = rawCsv.split(/\r?\n/);
+
+  for (let lineIndex = 1; lineIndex < lines.length; lineIndex += 1) {
+    const row = lines[lineIndex]?.trim();
+    if (!row) continue;
+
+    const columns = splitCsvLine(row);
+    if (columns.length < 5) continue;
+
+    const pincode = sanitizeCell(columns[0]);
+    const state = sanitizeCell(columns[2]).toUpperCase();
+    const cod = sanitizeCell(columns[3]).toUpperCase();
+    const prepaid = sanitizeCell(columns[4]).toUpperCase();
+
+    if (!PINCODE_REGEX.test(pincode)) continue;
+    if (cod !== "Y" && prepaid !== "Y") continue;
+
+    if (!lookup[pincode]) {
+      lookup[pincode] = state;
+    }
+  }
+
+  return lookup;
+};
+
 export default function ProductDetailPage() {
   const params = useParams();
   const slug = params?.id as string;
@@ -25,6 +85,10 @@ export default function ProductDetailPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedVariant, setSelectedVariant] = useState("");
+  const [pincode, setPincode] = useState("");
+  const [deliveryLookup, setDeliveryLookup] = useState<DeliveryLookup>({});
+  const [deliveryLookupLoading, setDeliveryLookupLoading] = useState(true);
+  const [deliveryLookupError, setDeliveryLookupError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -68,6 +132,79 @@ export default function ProductDetailPage() {
     setSelectedImage(0);
     setSelectedVariant(resolvedProduct?.variants[0]?.id ?? "");
   }, [resolvedProduct?.id]);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadDeliveryLookup = async () => {
+      try {
+        setDeliveryLookupLoading(true);
+        setDeliveryLookupError("");
+
+        const response = await fetch("/B2C_Pincodes_List.csv");
+        if (!response.ok) {
+          throw new Error("Unable to load pincode data.");
+        }
+
+        const csvText = await response.text();
+        const lookup = parseDeliveryLookup(csvText);
+
+        if (!active) return;
+        setDeliveryLookup(lookup);
+      } catch (error) {
+        if (!active) return;
+        setDeliveryLookupError(error instanceof Error ? error.message : "Unable to load pincode data.");
+      } finally {
+        if (active) {
+          setDeliveryLookupLoading(false);
+        }
+      }
+    };
+
+    void loadDeliveryLookup();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const normalizedPincode = useMemo(() => pincode.replace(/\D/g, "").slice(0, 6), [pincode]);
+
+  const deliveryEstimateMessage = useMemo(() => {
+    if (!normalizedPincode) {
+      return "Enter your 6-digit pincode to check delivery date.";
+    }
+
+    if (!PINCODE_REGEX.test(normalizedPincode)) {
+      return "Please enter a valid 6-digit pincode.";
+    }
+
+    if (deliveryLookupLoading) {
+      return "Checking pincode coverage...";
+    }
+
+    if (deliveryLookupError) {
+      return deliveryLookupError;
+    }
+
+    const state = deliveryLookup[normalizedPincode];
+    if (!state) {
+      return `Currently not deliverable to ${normalizedPincode}.`;
+    }
+
+    const deliveryDays = FAST_DELIVERY_STATES.has(state) ? 4 : 6;
+    const estimatedDate = new Date();
+    estimatedDate.setDate(estimatedDate.getDate() + deliveryDays);
+
+    const formattedDate = estimatedDate.toLocaleDateString("en-IN", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+
+    return `Estimated delivery by ${formattedDate} (${deliveryDays} days).`;
+  }, [deliveryLookup, deliveryLookupError, deliveryLookupLoading, normalizedPincode]);
 
   if (!resolvedProduct && (loading || productsLoading)) {
     return null;
@@ -141,6 +278,22 @@ export default function ProductDetailPage() {
             </div>
 
             <p className="text-2xl font-semibold text-coal">{currency(variant?.price ?? resolvedProduct.basePrice)}</p>
+            <section className="rounded-2xl border border-black/10 bg-gradient-to-br from-white via-orange-50/70 to-white p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">Delivery Estimate</p>
+              <div className="mt-3 space-y-2">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  value={normalizedPincode}
+                  onChange={(event) => setPincode(event.target.value)}
+                  placeholder="Enter pincode"
+                  className="w-full rounded-full border border-black/20 bg-white px-4 py-2.5 text-sm text-coal outline-none transition sm:max-w-[220px] focus:border-coal"
+                />
+                <p className="text-sm font-medium text-coal">{deliveryEstimateMessage}</p>
+              </div>
+            </section>
             <div className="flex flex-wrap gap-3">
               <button
                 onClick={() => addToCart(resolvedProduct.id, variant?.id)}
