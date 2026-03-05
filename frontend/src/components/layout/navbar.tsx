@@ -25,7 +25,7 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-50 border-b border-black/10 bg-white/95 backdrop-blur-xl">
       <div className="border-b border-black/10 bg-coal px-4 py-2 text-center text-xs font-medium text-white md:text-sm">
-        Free shipping on orders above $200 | Use code <span className="text-champagne">HIQ25</span> for extra savings
+        Free Delivery |  <span className="text-champagne">10%</span> Off On Prepaid Orders
       </div>
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 md:px-6">
         <div className="hidden items-center gap-6 md:flex">
@@ -80,16 +80,20 @@ export default function Navbar() {
 
       <div className="overflow-hidden border-t border-black/10 bg-[#f8f0e6] py-2">
         <div className="ticker-track whitespace-nowrap text-xs font-semibold uppercase tracking-[0.16em] text-coal md:text-sm">
-          <span className="mx-6">Flat 20% Off On HD Skin Base</span>
+          {/* <span className="mx-6">Flat 20% Off On HD Skin Base</span>
           <span className="mx-6">Buy 1 Get Maintenance Kit At 50% Off</span>
           <span className="mx-6">Use Code HIQ25 On Orders Above $150</span>
           <span className="mx-6">Chat On WhatsApp For Support: +91 98735 04614</span>
-          <span className="mx-6">Express Shipping Available Across India & US</span>
-          <span className="mx-6">Flat 20% Off On HD Skin Base</span>
-          <span className="mx-6">Buy 1 Get Maintenance Kit At 50% Off</span>
-          <span className="mx-6">Use Code HIQ25 On Orders Above $150</span>
+          <span className="mx-6">Express Shipping Available Across India</span> */}
+          <span className="mx-6">Home Service Available In Delhi NCR</span>
+          <span className="mx-6">Best Price Guaranteed</span>
           <span className="mx-6">Chat On WhatsApp For Support: +91 98735 04614</span>
-          <span className="mx-6">Express Shipping Available Across India & US</span>
+          <span className="mx-6">Shipping Available Across India</span>
+          <span className="mx-6">Home Service Available In Delhi NCR</span>
+          <span className="mx-6">Best Price Guaranteed</span>
+          <span className="mx-6">Chat On WhatsApp For Support: +91 98735 04614</span>
+          <span className="mx-6">Shipping Available Across India</span>
+           
         </div>
       </div>
 
