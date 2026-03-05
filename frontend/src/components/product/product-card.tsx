@@ -8,9 +8,17 @@ import { motion } from "framer-motion";
 import { Heart, ShoppingBag } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
 
 export default function ProductCard({ product }: { product: Product }) {
   const { addToCart, toggleWishlist, isWishlisted } = useStore();
+  const [showVariantPicker, setShowVariantPicker] = useState(false);
+
+  const handleVariantSelect = (variantId: string) => {
+    if (!variantId) return;
+    addToCart(product.id, variantId);
+    setShowVariantPicker(false);
+  };
 
   return (
     <motion.article whileHover={{ y: -6 }} className="group overflow-hidden rounded-2xl border border-graphite/10 bg-white/5">
@@ -46,13 +54,39 @@ export default function ProductCard({ product }: { product: Product }) {
 
         <RatingStars rating={product.rating} />
 
-        <button
-          onClick={() => addToCart(product.id)}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-coal transition hover:bg-champagne"
-        >
-          <ShoppingBag className="h-4 w-4" />
-          Quick Add
-        </button>
+        {!showVariantPicker ? (
+          <button
+            onClick={() => setShowVariantPicker(true)}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-coal transition hover:bg-champagne"
+          >
+            <ShoppingBag className="h-4 w-4" />
+            Quick Add
+          </button>
+        ) : (
+          <div className="space-y-2">
+            <select
+              defaultValue=""
+              onChange={(event) => handleVariantSelect(event.target.value)}
+              className="w-full rounded-full border border-black/20 bg-white px-4 py-2 text-sm text-coal outline-none"
+            >
+              <option value="" disabled>
+                Select a variant
+              </option>
+              {product.variants.map((variant) => (
+                <option key={variant.id} value={variant.id} disabled={variant.stock <= 0}>
+                  {variant.label} - {currency(variant.price)}
+                  {variant.stock <= 0 ? " (Out of stock)" : ""}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => setShowVariantPicker(false)}
+              className="w-full text-xs font-medium text-gray-600 underline underline-offset-4"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
       </div>
     </motion.article>
   );
