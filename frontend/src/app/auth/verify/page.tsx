@@ -19,6 +19,7 @@ type AuthPayload = {
 const OTP_LENGTH = 6;
 const AUTH_VERIFICATION_ID_KEY = "hairiq_auth_verification_id";
 const AUTH_PHONE_KEY = "hairiq_auth_phone";
+const SERVER_USER_KEY = "hairiq_server_user";
 
 export default function VerifyOtpPage() {
   const router = useRouter();
@@ -74,6 +75,21 @@ export default function VerifyOtpPage() {
   const updateDigit = (index: number, value: string) => {
     const clean = value.replace(/\D/g, "");
     if (!clean && value.length) return;
+
+    if (clean.length > 1) {
+      setOtpDigits((prev) => {
+        const next = [...prev];
+        const chars = clean.slice(0, OTP_LENGTH - index).split("");
+        chars.forEach((char, offset) => {
+          next[index + offset] = char;
+        });
+        return next;
+      });
+
+      const lastIndex = Math.min(index + clean.length, OTP_LENGTH - 1);
+      inputRefs.current[lastIndex]?.focus();
+      return;
+    }
 
     setOtpDigits((prev) => {
       const next = [...prev];
@@ -149,6 +165,7 @@ export default function VerifyOtpPage() {
       const payload = response.data;
       const storedPhone = sessionStorage.getItem(AUTH_PHONE_KEY) || "";
       localStorage.setItem("hairiq_server_token", payload.token);
+      localStorage.setItem(SERVER_USER_KEY, JSON.stringify(payload.user));
       sessionStorage.removeItem(AUTH_VERIFICATION_ID_KEY);
       sessionStorage.removeItem(AUTH_PHONE_KEY);
 
@@ -198,6 +215,7 @@ export default function VerifyOtpPage() {
       );
 
       localStorage.setItem("hairiq_server_token", response.data.token);
+      localStorage.setItem(SERVER_USER_KEY, JSON.stringify(response.data.user));
       setNeedsProfile(false);
       router.replace(nextPath);
     } catch (profileError) {

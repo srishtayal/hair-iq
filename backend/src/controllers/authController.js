@@ -148,7 +148,27 @@ const completeProfile = async (req, res, next) => {
   }
 };
 
+const getProfile = async (req, res, next) => {
+  try {
+    return res.status(200).json({
+      success: true,
+      data: {
+        user: {
+          id: req.user.id,
+          name: req.user.name,
+          phone: req.user.phone,
+          email: req.user.email,
+          role: req.user.role,
+        },
+      },
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 module.exports = {
   verifyFirebase,
   completeProfile,
+  getProfile,
 };

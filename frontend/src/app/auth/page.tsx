@@ -18,6 +18,20 @@ const COUNTRY_CODE = "+91";
 const AUTH_VERIFICATION_ID_KEY = "hairiq_auth_verification_id";
 const AUTH_PHONE_KEY = "hairiq_auth_phone";
 
+const normalizeIndianPhoneDigits = (raw: string) => {
+  let digits = raw.replace(/\D/g, "");
+
+  if (digits.startsWith("91") && digits.length > 10) {
+    digits = digits.slice(2);
+  }
+
+  if (digits.startsWith("0") && digits.length > 10) {
+    digits = digits.slice(1);
+  }
+
+  return digits.slice(0, 10);
+};
+
 export default function AuthPage() {
   const router = useRouter();
   const { user, authReady } = useStore();
@@ -181,7 +195,7 @@ export default function AuthPage() {
               inputMode="numeric"
               maxLength={10}
               value={phoneDigits}
-              onChange={(event) => setPhoneDigits(event.target.value.replace(/\D/g, "").slice(0, 10))}
+              onChange={(event) => setPhoneDigits(normalizeIndianPhoneDigits(event.target.value))}
               className="w-full rounded-xl border border-black/15 bg-white px-4 py-3 text-sm text-coal outline-none focus:border-coal"
               placeholder="10-digit mobile number"
             />

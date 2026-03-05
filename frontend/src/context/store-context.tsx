@@ -38,6 +38,7 @@ const shippingFee = 12;
 const CART_KEY = "hairiq_cart_items";
 const WISHLIST_KEY = "hairiq_wishlist_items";
 const SESSION_KEY = "hairiq_session_started_at";
+const SERVER_USER_KEY = "hairiq_server_user";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 
 export const StoreProvider = ({ children }: { children: React.ReactNode }) => {
@@ -221,6 +222,7 @@ export const StoreProvider = ({ children }: { children: React.ReactNode }) => {
     }
     localStorage.removeItem(SESSION_KEY);
     localStorage.removeItem("hairiq_server_token");
+    localStorage.removeItem(SERVER_USER_KEY);
     setUser(null);
     router.push("/");
   };
@@ -249,6 +251,7 @@ export const StoreProvider = ({ children }: { children: React.ReactNode }) => {
           }
         );
         localStorage.setItem("hairiq_server_token", response.data.token);
+        localStorage.setItem(SERVER_USER_KEY, JSON.stringify(response.data.user));
       } catch {
         // Keep UI responsive even if backend sync temporarily fails.
       }
