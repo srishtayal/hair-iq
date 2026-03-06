@@ -5,12 +5,14 @@ dotenv.config();
 const app = require('./app');
 const { sequelize } = require('./models');
 const { mountAdmin } = require('./admin/admin');
+const { ensureSchema } = require('./db/ensureSchema');
 
 const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
   try {
     await sequelize.authenticate();
+    await ensureSchema(sequelize);
     // NOTE: Keep only for local/dev quick testing. Remove in production.
     if (process.env.NODE_ENV !== 'production') {
       await sequelize.sync({ alter: true });

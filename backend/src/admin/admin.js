@@ -76,13 +76,15 @@ const mountAdmin = async (app) => {
         resource: Product,
         options: {
           navigation: { name: 'Catalog', icon: 'Product' },
-          listProperties: ['id', 'name', 'slug', 'category', 'quantity', 'isActive', 'createdAt'],
-          editProperties: ['name', 'slug', 'description', 'category', 'quantity', 'isActive'],
+          listProperties: ['id', 'name', 'slug', 'price', 'category', 'quantity', 'isActive', 'createdAt'],
+          editProperties: ['name', 'slug', 'shortDescription', 'longDescription', 'price', 'category', 'quantity', 'isActive'],
           showProperties: [
             'id',
             'name',
             'slug',
-            'description',
+            'shortDescription',
+            'longDescription',
+            'price',
             'category',
             'quantity',
             'isActive',

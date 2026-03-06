@@ -27,8 +27,8 @@ const getProductBySlug = async (req, res, next) => {
 
 const createProduct = async (req, res, next) => {
   try {
-    const { name, description, category, isActive } = req.body;
-    const data = await productService.createProduct({ name, description, category, isActive });
+    const { name, shortDescription, longDescription, description, price, category, isActive } = req.body;
+    const data = await productService.createProduct({ name, shortDescription, longDescription, description, price, category, isActive });
     return res.status(201).json({ success: true, data });
   } catch (error) {
     return next(error);

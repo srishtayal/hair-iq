@@ -265,22 +265,26 @@ export default function ProductDetailPage() {
             <p className="text-xs uppercase tracking-[0.2em] text-champagne">{resolvedProduct.category}</p>
             <h1 className="font-display text-4xl text-coal">{resolvedProduct.name}</h1>
             <RatingStars rating={resolvedProduct.rating} />
-            <p className="text-sm text-gray-600 md:text-base">{resolvedProduct.description}</p>
+
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Product Info</p>
+              <p className="text-sm text-gray-600 md:text-base">{resolvedProduct.shortDescription}</p>
+            </div>
 
             <div>
               <p className="mb-2 text-sm font-semibold text-coal">Select Variant</p>
-              <div className="space-y-2">
+              <div className="flex flex-wrap gap-2">
                 {resolvedProduct.variants.map((variantItem) => (
                   <button
                     key={variantItem.id}
                     onClick={() => setSelectedVariant(variantItem.id)}
-                    className={`block w-full rounded-xl border px-4 py-3 text-left text-sm ${
+                    className={`rounded-full border px-4 py-2 text-sm ${
                       selectedVariant === variantItem.id
                         ? "border-champagne bg-champagne/10 text-coal"
                         : "border-white/10 bg-white/5 text-gray-600"
                     }`}
                   >
-                    {variantItem.label} - {currency(variantItem.price)}
+                    {variantItem.label}
                   </button>
                 ))}
               </div>
@@ -319,6 +323,11 @@ export default function ProductDetailPage() {
             </div>
           </div>
         </div>
+
+        <section className="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-5 md:p-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Description</p>
+          <p className="text-sm text-gray-700 md:text-base">{resolvedProduct.description}</p>
+        </section>
 
         <section className="space-y-6">
           <SectionHeader eyebrow="Reviews" title="Customer feedback" />

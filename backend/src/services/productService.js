@@ -76,12 +76,17 @@ const mapProductWithDetails = (product) => {
   const media = [...(product.media || [])].sort((a, b) => a.sortOrder - b.sortOrder);
   const topVariant = pickTopVariant(variants);
   const thumbnail = pickThumbnail(media);
+  const longDescription = product.longDescription || product.description || null;
+  const shortDescription = product.shortDescription || (longDescription ? longDescription.slice(0, 160) : null);
 
   return {
     id: product.id,
     name: product.name,
     slug: product.slug,
-    description: product.description,
+    description: longDescription,
+    shortDescription,
+    longDescription,
+    price: product.price,
     category: product.category,
     isActive: product.isActive,
     quantity: product.quantity,
@@ -101,6 +106,8 @@ const getProducts = async ({ page = 1, limit = 12, search = '', category = '' })
     where[Op.or] = [
       { name: { [Op.iLike]: `%${search}%` } },
       { description: { [Op.iLike]: `%${search}%` } },
+      { shortDescription: { [Op.iLike]: `%${search}%` } },
+      { longDescription: { [Op.iLike]: `%${search}%` } },
     ];
   }
 
@@ -173,17 +180,23 @@ const getProductBySlug = async (slug) => {
   return mapProductWithDetails(product);
 };
 
-const createProduct = async ({ name, description, category, isActive = true }) => {
+const createProduct = async ({ name, shortDescription, longDescription, description, price, category, isActive = true }) => {
   if (!name || !category) {
     throw createError('name and category are required', 400);
   }
 
   const slug = await getUniqueSlug(name);
+  const resolvedLongDescription = longDescription ?? description ?? null;
+
+  const resolvedPrice = price === undefined || price === null || price === '' ? 0 : Number(price);
 
   return Product.create({
     name,
     slug,
-    description: description || null,
+    description: resolvedLongDescription,
+    shortDescription: shortDescription || null,
+    longDescription: resolvedLongDescription,
+    price: Number.isNaN(resolvedPrice) ? 0 : resolvedPrice,
     category,
     isActive: typeof isActive === 'boolean' ? isActive : true,
   });
@@ -200,7 +213,16 @@ const updateProduct = async (id, payload) => {
     updates.name = payload.name;
     updates.slug = await getUniqueSlug(payload.name, id);
   }
-  if (payload.description !== undefined) updates.description = payload.description;
+  const resolvedLongDescription = payload.longDescription ?? payload.description;
+  if (payload.shortDescription !== undefined) updates.shortDescription = payload.shortDescription;
+  if (resolvedLongDescription !== undefined) {
+    updates.longDescription = resolvedLongDescription;
+    updates.description = resolvedLongDescription;
+  }
+  if (payload.price !== undefined) {
+    const parsedPrice = Number(payload.price);
+    updates.price = Number.isNaN(parsedPrice) ? 0 : parsedPrice;
+  }
   if (payload.category !== undefined) updates.category = payload.category;
   if (payload.isActive !== undefined) updates.isActive = payload.isActive;
   if (payload.quantity !== undefined) updates.quantity = payload.quantity;

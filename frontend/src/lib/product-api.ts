@@ -22,7 +22,10 @@ type BackendProduct = {
   id: string;
   slug: string;
   name: string;
+  shortDescription: string | null;
+  longDescription: string | null;
   description: string | null;
+  price: number;
   category: string;
   thumbnail: string | null;
   topVariant: BackendVariant | null;
@@ -63,9 +66,34 @@ const absoluteUrl = (value: string) => {
   return `${baseUrl.replace(/\/+$/, "")}/${value.replace(/^\/+/, "")}`;
 };
 
+const parseSizeParts = (value: string | null) => {
+  if (!value) return null;
+  const matches = value.match(/\d+(?:\.\d+)?/g);
+  if (!matches || matches.length < 2) return null;
+
+  return {
+    first: Number(matches[0]),
+    second: Number(matches[1])
+  };
+};
+
+const compareVariantSizes = (a: BackendVariant, b: BackendVariant) => {
+  const aSize = parseSizeParts(a.size);
+  const bSize = parseSizeParts(b.size);
+
+  if (aSize && bSize) {
+    if (aSize.first !== bSize.first) return aSize.first - bSize.first;
+    if (aSize.second !== bSize.second) return aSize.second - bSize.second;
+    return (a.size || "").localeCompare(b.size || "");
+  }
+
+  if (aSize) return -1;
+  if (bSize) return 1;
+  return (a.size || "").localeCompare(b.size || "");
+};
+
 const getVariantLabel = (variant: BackendVariant) => {
-  const parts = [variant.size, variant.color, variant.density].filter(Boolean);
-  return parts.length ? parts.join(" / ") : variant.sku || "Default";
+  return variant.size?.trim() || variant.sku || "Default";
 };
 
 const toShortDescription = (description: string, maxLength = 120) => {
@@ -85,22 +113,25 @@ const mapProduct = (item: BackendProduct): Product => {
     images.push(absoluteUrl(item.thumbnail));
   }
 
-  const resolvedDescription = item.description || "Premium Hair IQ product.";
-  const mappedVariants = variants.map((variant) => ({
+  const resolvedDescription = item.longDescription || item.description || item.shortDescription || "Premium Hair IQ product.";
+  const resolvedShortDescription = item.shortDescription || toShortDescription(resolvedDescription);
+  const mappedVariants = [...variants]
+    .sort(compareVariantSizes)
+    .map((variant) => ({
     id: variant.id,
     label: getVariantLabel(variant),
     price: variant.price,
     stock: variant.stockQuantity
-  }));
+    }));
 
-  const fallbackPrice = item.topVariant?.price ?? 0;
+  const fallbackPrice = item.topVariant?.price ?? item.price ?? 0;
   const basePrice = mappedVariants[0]?.price ?? fallbackPrice;
 
   return {
     id: item.id,
     slug: item.slug,
     name: item.name,
-    shortDescription: toShortDescription(resolvedDescription),
+    shortDescription: resolvedShortDescription,
     description: resolvedDescription,
     category: item.category,
     basePrice,
