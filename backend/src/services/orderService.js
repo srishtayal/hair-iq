@@ -3,7 +3,7 @@ const fs = require('fs/promises');
 const path = require('path');
 const Razorpay = require('razorpay');
 const sequelize = require('../config/db');
-const { Address, Cart, CartItem, Coupon, Order, OrderItem, Payment, Product, ProductVariant } = require('../models');
+const { Address, Cart, CartItem, Coupon, Order, OrderItem, Payment, Product, ProductVariant, User } = require('../models');
 
 const createError = (message, statusCode = 400) => {
   const error = new Error(message);
@@ -18,6 +18,7 @@ const toInt = (value, fallback = 0) => {
 };
 
 const PINCODE_REGEX = /^\d{6}$/;
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 let codServiceablePincodesCache = null;
 let codServiceablePincodesPromise = null;
 
@@ -345,6 +346,7 @@ const normalizeItems = async ({ userId, cartId, items, transaction }) => {
     const normalized = [];
 
     for (const item of cartItems) {
+      assertUuid(item.productVariantId, 'productVariantId');
       const variant = await ProductVariant.findByPk(item.productVariantId, {
         transaction,
         lock: transaction.LOCK.UPDATE,
@@ -380,6 +382,7 @@ const normalizeItems = async ({ userId, cartId, items, transaction }) => {
     if (!productVariantId || quantity < 1) {
       throw createError('Each item requires productVariantId and quantity >= 1', 400);
     }
+    assertUuid(productVariantId, 'productVariantId');
 
     const variant = await ProductVariant.findByPk(productVariantId, {
       transaction,
@@ -463,6 +466,153 @@ const normalizeCodStatusLabel = (value) => {
     return 'COD_PENDING';
   }
   return normalized;
+};
+
+const normalizeCodStatusForFlow = (value) => {
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+
+  if (normalized === 'pending' || normalized === 'cod_pending') {
+    return 'cod_pending';
+  }
+
+  return normalized;
+};
+
+const toStoredCodOrderStatus = (status) => {
+  if (status === 'cod_pending') {
+    return 'COD_PENDING';
+  }
+  return status;
+};
+
+const assertUuid = (value, fieldName) => {
+  const normalized = String(value || '').trim();
+  if (!UUID_REGEX.test(normalized)) {
+    throw createError(`Invalid ${fieldName}. Please refresh and try again.`, 400);
+  }
+};
+
+const COD_ORDER_STATUS_SET = new Set([
+  'cod_pending',
+  'confirmed',
+  'processing',
+  'packed',
+  'shipped',
+  'out_for_delivery',
+  'delivered',
+  'cancelled',
+  'returned',
+]);
+
+const COD_STATUS_TRANSITIONS = {
+  cod_pending: new Set(['confirmed', 'processing', 'packed', 'shipped', 'out_for_delivery', 'delivered', 'cancelled']),
+  confirmed: new Set(['processing', 'packed', 'shipped', 'out_for_delivery', 'delivered', 'cancelled']),
+  processing: new Set(['packed', 'shipped', 'out_for_delivery', 'delivered', 'cancelled']),
+  packed: new Set(['shipped', 'out_for_delivery', 'delivered', 'cancelled']),
+  shipped: new Set(['out_for_delivery', 'delivered', 'returned']),
+  out_for_delivery: new Set(['delivered', 'returned']),
+  delivered: new Set(['returned']),
+  cancelled: new Set(),
+  returned: new Set(),
+};
+
+const isCodOrderRecord = (order) => {
+  const payments = Array.isArray(order?.payments) ? order.payments : [];
+  const hasPaymentRecords = payments.length > 0;
+
+  if (!hasPaymentRecords) {
+    return true;
+  }
+
+  return normalizeCodStatusForFlow(order?.orderStatus) === 'cod_pending'
+    || normalizeCodStatusForFlow(order?.paymentStatus) === 'cod_pending';
+};
+
+const mapOrderForResponse = (order, options = {}) => {
+  const includeUser = options.includeUser === true;
+  const includeCodFlag = options.includeCodFlag === true;
+  const mappedItems = (order.items || []).map((item) => {
+    const resolvedUnitPrice = Number(item.priceAtPurchase || item.productVariant?.product?.price || item.productVariant?.price || 0);
+    const lineTotal = resolvedUnitPrice * item.quantity;
+
+    return {
+      id: item.id,
+      quantity: item.quantity,
+      priceAtPurchase: resolvedUnitPrice,
+      lineTotal,
+      variant: item.productVariant
+        ? {
+            id: item.productVariant.id,
+            size: item.productVariant.size,
+            color: item.productVariant.color,
+            density: item.productVariant.density,
+            price: resolvedUnitPrice,
+            sku: item.productVariant.sku,
+          }
+        : null,
+      product: item.productVariant?.product
+        ? {
+            id: item.productVariant.product.id,
+            name: item.productVariant.product.name,
+            slug: item.productVariant.product.slug,
+            category: item.productVariant.product.category,
+          }
+        : null,
+    };
+  });
+
+  const computedItemsTotal = mappedItems.reduce((sum, item) => sum + item.lineTotal, 0);
+  const resolvedTotalAmount =
+    Number(order.totalAmount || 0) > 0
+      ? Number(order.totalAmount)
+      : Math.max(0, computedItemsTotal + Number(order.shippingAmount || 0) - Number(order.discountAmount || 0));
+
+  const response = {
+    id: order.id,
+    createdAt: order.createdAt,
+    updatedAt: order.updatedAt,
+    totalAmount: resolvedTotalAmount,
+    shippingAmount: order.shippingAmount,
+    discountAmount: order.discountAmount,
+    paymentStatus: normalizeCodStatusLabel(order.paymentStatus),
+    orderStatus: normalizeCodStatusLabel(order.orderStatus),
+    trackingId: order.trackingId,
+    totalItems: mappedItems.reduce((sum, item) => sum + item.quantity, 0),
+    address: order.address
+      ? {
+          id: order.address.id,
+          fullName: order.address.fullName,
+          phone: order.address.phone,
+          addressLine1: order.address.addressLine1,
+          addressLine2: order.address.addressLine2,
+          city: order.address.city,
+          state: order.address.state,
+          pincode: order.address.pincode,
+          isDefault: order.address.isDefault,
+        }
+      : null,
+    items: mappedItems,
+  };
+
+  if (includeCodFlag) {
+    response.isCodOrder = isCodOrderRecord(order);
+  }
+
+  if (includeUser) {
+    response.user = order.user
+      ? {
+          id: order.user.id,
+          name: order.user.name,
+          phone: order.user.phone,
+          email: order.user.email,
+        }
+      : null;
+  }
+
+  return response;
 };
 
 const createOrder = async ({ userId, cartId, items, addressId, couponCode }) => {
@@ -647,35 +797,7 @@ const createCodOrder = async ({ userId, items, customerDetails }) => {
 };
 
 const markCodOrderDeliveredAndPaid = async ({ orderId }) => {
-  if (!orderId) {
-    throw createError('orderId is required', 400);
-  }
-
-  return sequelize.transaction(async (transaction) => {
-    const order = await Order.findByPk(orderId, { transaction, lock: transaction.LOCK.UPDATE });
-
-    if (!order) {
-      throw createError('Order not found', 404);
-    }
-
-    if (!['COD_PENDING', 'cod_pending'].includes(String(order.orderStatus))) {
-      throw createError('Only COD_PENDING orders can be marked delivered/paid', 400);
-    }
-
-    await order.update(
-      {
-        orderStatus: 'delivered',
-        paymentStatus: 'paid',
-      },
-      { transaction }
-    );
-
-    return {
-      orderId: order.id,
-      paymentStatus: order.paymentStatus,
-      orderStatus: order.orderStatus,
-    };
-  });
+  return updateCodOrderStatus({ orderId, orderStatus: 'delivered' });
 };
 
 const getOrdersByUser = async (userId) => {
@@ -706,71 +828,161 @@ const getOrdersByUser = async (userId) => {
           },
         ],
       },
+      {
+        model: Payment,
+        as: 'payments',
+        attributes: ['id', 'gateway', 'status'],
+        required: false,
+      },
     ],
   });
 
-  return orders.map((order) => {
-    const mappedItems = (order.items || []).map((item) => {
-      const resolvedUnitPrice = Number(item.priceAtPurchase || item.productVariant?.product?.price || item.productVariant?.price || 0);
-      const lineTotal = resolvedUnitPrice * item.quantity;
+  return orders.map((order) => mapOrderForResponse(order, { includeCodFlag: true }));
+};
 
-      return {
-        id: item.id,
-        quantity: item.quantity,
-        priceAtPurchase: resolvedUnitPrice,
-        lineTotal,
-        variant: item.productVariant
-          ? {
-              id: item.productVariant.id,
-              size: item.productVariant.size,
-              color: item.productVariant.color,
-              density: item.productVariant.density,
-              price: resolvedUnitPrice,
-              sku: item.productVariant.sku,
-            }
-          : null,
-        product: item.productVariant?.product
-          ? {
-              id: item.productVariant.product.id,
-              name: item.productVariant.product.name,
-              slug: item.productVariant.product.slug,
-              category: item.productVariant.product.category,
-            }
-          : null,
-      };
+const getCodOrdersForAdmin = async () => {
+  const orders = await Order.findAll({
+    order: [['createdAt', 'DESC']],
+    include: [
+      {
+        model: User,
+        as: 'user',
+        attributes: ['id', 'name', 'phone', 'email'],
+      },
+      {
+        model: Address,
+        as: 'address',
+        attributes: ['id', 'fullName', 'phone', 'addressLine1', 'addressLine2', 'city', 'state', 'pincode', 'isDefault'],
+      },
+      {
+        model: OrderItem,
+        as: 'items',
+        include: [
+          {
+            model: ProductVariant,
+            as: 'productVariant',
+            attributes: ['id', 'size', 'color', 'density', 'price', 'sku'],
+            include: [
+              {
+                model: Product,
+                as: 'product',
+                attributes: ['id', 'name', 'slug', 'category', 'price'],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        model: Payment,
+        as: 'payments',
+        attributes: ['id', 'gateway', 'status'],
+        required: false,
+      },
+    ],
+  });
+
+  return orders.filter((order) => isCodOrderRecord(order)).map((order) => mapOrderForResponse(order, {
+    includeUser: true,
+    includeCodFlag: true,
+  }));
+};
+
+const updateCodOrderStatus = async ({
+  orderId,
+  orderStatus,
+  trackingId,
+  trackingIdProvided = false,
+}) => {
+  if (!orderId) {
+    throw createError('orderId is required', 400);
+  }
+  assertUuid(orderId, 'orderId');
+
+  const normalizedRequestedStatus = normalizeCodStatusForFlow(orderStatus);
+  if (!COD_ORDER_STATUS_SET.has(normalizedRequestedStatus)) {
+    throw createError('Invalid COD order status', 400);
+  }
+
+  return sequelize.transaction(async (transaction) => {
+    const order = await Order.findByPk(orderId, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+      include: [
+        {
+          model: Address,
+          as: 'address',
+          attributes: ['id', 'fullName', 'phone', 'addressLine1', 'addressLine2', 'city', 'state', 'pincode', 'isDefault'],
+        },
+        {
+          model: OrderItem,
+          as: 'items',
+          include: [
+            {
+              model: ProductVariant,
+              as: 'productVariant',
+              attributes: ['id', 'size', 'color', 'density', 'price', 'sku'],
+              include: [
+                {
+                  model: Product,
+                  as: 'product',
+                  attributes: ['id', 'name', 'slug', 'category', 'price'],
+                },
+              ],
+            },
+          ],
+        },
+        {
+          model: Payment,
+          as: 'payments',
+          attributes: ['id', 'gateway', 'status'],
+          required: false,
+        },
+      ],
     });
 
-    const computedItemsTotal = mappedItems.reduce((sum, item) => sum + item.lineTotal, 0);
-    const resolvedTotalAmount =
-      Number(order.totalAmount || 0) > 0
-        ? Number(order.totalAmount)
-        : Math.max(0, computedItemsTotal + Number(order.shippingAmount || 0) - Number(order.discountAmount || 0));
+    if (!order) {
+      throw createError('Order not found', 404);
+    }
 
-    return {
-    id: order.id,
-    createdAt: order.createdAt,
-    totalAmount: resolvedTotalAmount,
-    shippingAmount: order.shippingAmount,
-    discountAmount: order.discountAmount,
-    paymentStatus: normalizeCodStatusLabel(order.paymentStatus),
-    orderStatus: normalizeCodStatusLabel(order.orderStatus),
-    trackingId: order.trackingId,
-    totalItems: mappedItems.reduce((sum, item) => sum + item.quantity, 0),
-    address: order.address
-      ? {
-          id: order.address.id,
-          fullName: order.address.fullName,
-          phone: order.address.phone,
-          addressLine1: order.address.addressLine1,
-          addressLine2: order.address.addressLine2,
-          city: order.address.city,
-          state: order.address.state,
-          pincode: order.address.pincode,
-          isDefault: order.address.isDefault,
-        }
-      : null,
-    items: mappedItems,
-  };
+    if (!isCodOrderRecord(order)) {
+      throw createError('Only COD orders can be updated via this endpoint', 400);
+    }
+
+    const currentStatus = normalizeCodStatusForFlow(order.orderStatus);
+    if (!COD_ORDER_STATUS_SET.has(currentStatus)) {
+      throw createError('Current order status is outside COD flow', 400);
+    }
+
+    if (currentStatus !== normalizedRequestedStatus) {
+      const allowedNextStatuses = COD_STATUS_TRANSITIONS[currentStatus] || new Set();
+      if (!allowedNextStatuses.has(normalizedRequestedStatus)) {
+        throw createError(
+          `Invalid COD status transition from ${currentStatus} to ${normalizedRequestedStatus}`,
+          400
+        );
+      }
+    }
+
+    const updates = {
+      orderStatus: toStoredCodOrderStatus(normalizedRequestedStatus),
+    };
+
+    if (normalizedRequestedStatus === 'delivered') {
+      updates.paymentStatus = 'paid';
+    } else if (normalizedRequestedStatus === 'returned' && String(order.paymentStatus || '').toLowerCase() === 'paid') {
+      updates.paymentStatus = 'refunded';
+    } else {
+      updates.paymentStatus = 'COD_PENDING';
+    }
+
+    if (trackingIdProvided) {
+      const normalizedTrackingId = String(trackingId || '').trim();
+      updates.trackingId = normalizedTrackingId || null;
+    }
+
+    await order.update(updates, { transaction });
+
+    return mapOrderForResponse(order, { includeCodFlag: true });
   });
 };
 
@@ -887,8 +1099,10 @@ module.exports = {
   createOrder,
   getMagicCheckoutPromotions,
   getMagicCheckoutShippingInfo,
+  getCodOrdersForAdmin,
   getOrdersByUser,
   markCodOrderDeliveredAndPaid,
+  updateCodOrderStatus,
   verifyRazorpayPaymentSignature,
   verifyRazorpayWebhookSignature,
   processPaymentCaptured,

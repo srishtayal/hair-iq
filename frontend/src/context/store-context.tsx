@@ -41,6 +41,26 @@ const SESSION_KEY = "hairiq_session_started_at";
 const SERVER_USER_KEY = "hairiq_server_user";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 
+const isCartItemShape = (value: unknown): value is CartItemType => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<CartItemType>;
+  return (
+    typeof candidate.itemId === "string" &&
+    typeof candidate.productId === "string" &&
+    typeof candidate.variantId === "string" &&
+    typeof candidate.quantity === "number"
+  );
+};
+
+const filterCartItemsByCatalog = (items: CartItemType[], products: Product[]) =>
+  items.filter((item) =>
+    products.some(
+      (product) =>
+        product.id === item.productId &&
+        product.variants.some((variant) => variant.id === item.variantId)
+    )
+  );
+
 export const StoreProvider = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
   const pathname = usePathname();
@@ -79,7 +99,9 @@ export const StoreProvider = ({ children }: { children: React.ReactNode }) => {
 
     if (persistedCart) {
       try {
-        setCartItems(JSON.parse(persistedCart));
+        const parsed = JSON.parse(persistedCart);
+        const normalized = Array.isArray(parsed) ? parsed.filter(isCartItemShape) : [];
+        setCartItems(normalized);
       } catch {
         localStorage.removeItem(CART_KEY);
       }
@@ -97,6 +119,20 @@ export const StoreProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     localStorage.setItem(CART_KEY, JSON.stringify(cartItems));
   }, [cartItems]);
+
+  useEffect(() => {
+    if (!products.length) {
+      return;
+    }
+
+    setCartItems((previous) => {
+      const next = filterCartItemsByCatalog(previous, products);
+      if (next.length === previous.length) {
+        return previous;
+      }
+      return next;
+    });
+  }, [products]);
 
   useEffect(() => {
     localStorage.setItem(WISHLIST_KEY, JSON.stringify(wishlist));

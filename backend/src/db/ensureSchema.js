@@ -54,7 +54,22 @@ const backfillOrderTotals = async (sequelize) => {
   `);
 };
 
+const ensureOrderStatusEnumValues = async (sequelize) => {
+  const valuesToAdd = ['packed', 'out_for_delivery'];
+
+  for (const value of valuesToAdd) {
+    try {
+      await sequelize.query(`ALTER TYPE "enum_orders_orderStatus" ADD VALUE IF NOT EXISTS '${value}'`);
+    } catch (error) {
+      if (error?.original?.code !== '42704') {
+        throw error;
+      }
+    }
+  }
+};
+
 const ensureSchema = async (sequelize) => {
+  await ensureOrderStatusEnumValues(sequelize);
   await ensureProductColumns(sequelize);
   await backfillOrderItemPrices(sequelize);
   await backfillOrderTotals(sequelize);

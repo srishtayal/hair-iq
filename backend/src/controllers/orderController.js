@@ -25,6 +25,30 @@ const getOrders = async (req, res, next) => {
   }
 };
 
+const getAdminCodOrders = async (req, res, next) => {
+  try {
+    const data = await orderService.getCodOrdersForAdmin();
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const updateCodOrderStatus = async (req, res, next) => {
+  try {
+    const data = await orderService.updateCodOrderStatus({
+      orderId: req.params.id,
+      orderStatus: req.body?.orderStatus,
+      trackingId: req.body?.trackingId,
+      trackingIdProvided: Object.prototype.hasOwnProperty.call(req.body || {}, 'trackingId'),
+    });
+
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 const createPaymentOrder = async (req, res, next) => {
   try {
     const data = await orderService.createPaymentOrder({
@@ -162,6 +186,8 @@ module.exports = {
   magicCheckoutApplyPromotions,
   magicCheckoutGetPromotions,
   magicCheckoutShippingInfo,
+  getAdminCodOrders,
+  updateCodOrderStatus,
   markCodOrderDeliveredAndPaid,
   createCodOrder,
   createPaymentOrder,

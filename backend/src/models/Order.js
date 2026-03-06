@@ -44,7 +44,9 @@ module.exports = (sequelize) => {
           'COD_PENDING',
           'confirmed',
           'processing',
+          'packed',
           'shipped',
+          'out_for_delivery',
           'delivered',
           'cancelled',
           'returned'
