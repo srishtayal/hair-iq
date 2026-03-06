@@ -51,11 +51,19 @@ const splitCsvLine = (line) => {
 };
 
 const resolvePincodeCsvPath = async () => {
+  const envPath = String(process.env.COD_PINCODE_CSV_PATH || '').trim();
   const candidates = [
+    envPath ? path.resolve(process.cwd(), envPath) : null,
+    path.resolve(process.cwd(), 'B2C_Pincodes_List.csv'),
+    path.resolve(process.cwd(), 'public/B2C_Pincodes_List.csv'),
+    path.resolve(process.cwd(), 'backend/B2C_Pincodes_List.csv'),
+    path.resolve(process.cwd(), 'backend/public/B2C_Pincodes_List.csv'),
+    path.resolve(__dirname, '../../B2C_Pincodes_List.csv'),
+    path.resolve(__dirname, '../../public/B2C_Pincodes_List.csv'),
     path.resolve(process.cwd(), '../frontend/public/B2C_Pincodes_List.csv'),
     path.resolve(process.cwd(), 'frontend/public/B2C_Pincodes_List.csv'),
     path.resolve(__dirname, '../../../frontend/public/B2C_Pincodes_List.csv'),
-  ];
+  ].filter(Boolean);
 
   for (const candidate of candidates) {
     try {
