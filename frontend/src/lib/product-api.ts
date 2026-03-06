@@ -109,6 +109,11 @@ const mapProduct = (item: BackendProduct): Product => {
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .map((mediaItem) => absoluteUrl(mediaItem.url));
 
+  const videos = (item.media || [])
+    .filter((mediaItem) => mediaItem.type === "video")
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((mediaItem) => absoluteUrl(mediaItem.url));
+
   if (!images.length && item.thumbnail) {
     images.push(absoluteUrl(item.thumbnail));
   }
@@ -141,6 +146,7 @@ const mapProduct = (item: BackendProduct): Product => {
     reviewCount: 0,
     tags: [],
     images: images.length ? images : [FALLBACK_IMAGE],
+    videos,
     variants: mappedVariants
   };
 };

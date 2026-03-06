@@ -10,13 +10,15 @@ type VideoCardProps = {
   autoPreviewEnabled?: boolean;
   isAutoFocused?: boolean;
   onVisibilityChange?: (videoId: string, ratio: number) => void;
+  uniformHeight?: boolean;
 };
 
 export default function VideoCard({
   video,
   autoPreviewEnabled = false,
   isAutoFocused = false,
-  onVisibilityChange
+  onVisibilityChange,
+  uniformHeight = false
 }: VideoCardProps) {
   const [isPointerHovering, setIsPointerHovering] = useState(false);
   const cardRef = useRef<HTMLElement | null>(null);
@@ -102,7 +104,7 @@ export default function VideoCard({
     <motion.article
       ref={cardRef}
       whileHover={{ y: -4 }}
-      className="group overflow-hidden rounded-2xl border border-graphite/10 bg-transparent"
+      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-graphite/10 bg-transparent"
       onPointerEnter={(event) => handlePointerEnter(event.pointerType)}
       onPointerLeave={(event) => handlePointerLeave(event.pointerType)}
     >
@@ -129,10 +131,10 @@ export default function VideoCard({
         <div className="absolute inset-0 bg-transparent" />
         <span className="absolute bottom-3 right-3 rounded bg-transparent px-2 py-1 text-xs text-white">{video.duration}</span>
       </div>
-      <div className="space-y-2 p-4">
+      <div className={uniformHeight ? "flex min-h-[150px] flex-col space-y-2 p-4" : "space-y-2 p-4"}>
         <p className="text-xs uppercase tracking-[0.2em] text-champagne">{video.category}</p>
-        <h3 className="font-semibold text-coal">{video.title}</h3>
-        <p className="text-sm text-gray-600">{video.description}</p>
+        <h3 className={uniformHeight ? "min-h-[48px] font-semibold text-coal" : "font-semibold text-coal"}>{video.title}</h3>
+        <p className={uniformHeight ? "min-h-[60px] text-sm text-gray-600" : "text-sm text-gray-600"}>{video.description}</p>
       </div>
     </motion.article>
   );

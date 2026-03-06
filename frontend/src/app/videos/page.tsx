@@ -12,7 +12,7 @@ export default function VideosPage() {
   const [visibilityRatios, setVisibilityRatios] = useState<Record<string, number>>({});
   const [autoPreviewVideoId, setAutoPreviewVideoId] = useState<string | null>(null);
 
-  const categories = ["All", "Install", "Care", "Styling"];
+  const categories = ["All", "Informative", "Product", "Transformations"];
   const filteredVideos = useMemo(
     () => (category === "All" ? videos : videos.filter((video) => video.category === category)),
     [category]

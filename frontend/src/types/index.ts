@@ -17,6 +17,7 @@ export type Product = {
   reviewCount: number;
   tags: string[];
   images: string[];
+  videos?: string[];
   variants: ProductVariant[];
   featured?: boolean;
 };
@@ -39,7 +40,7 @@ export type Video = {
   duration: string;
   thumbnail: string;
   embedUrl: string;
-  category: "Install" | "Care" | "Styling";
+  category: "Informative" | "Product" | "Transformations";
 };
 
 export type CartItemType = {

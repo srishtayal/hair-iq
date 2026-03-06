@@ -109,7 +109,7 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [selectedImage, setSelectedImage] = useState(0);
+  const [selectedMediaIndex, setSelectedMediaIndex] = useState(0);
   const [selectedVariant, setSelectedVariant] = useState("");
   const [pincode, setPincode] = useState("");
   const [deliveryLookup, setDeliveryLookup] = useState<DeliveryLookup>({});
@@ -164,7 +164,7 @@ export default function ProductDetailPage() {
   }, [products, resolvedProduct]);
 
   useEffect(() => {
-    setSelectedImage(0);
+    setSelectedMediaIndex(0);
     setSelectedVariant(resolvedProduct?.variants[0]?.id ?? "");
   }, [resolvedProduct?.id]);
 
@@ -227,7 +227,7 @@ export default function ProductDetailPage() {
       return `Currently not deliverable to ${normalizedPincode}.`;
     }
 
-    const deliveryDays = FAST_DELIVERY_STATES.has(state) ? 4 : 6;
+    const deliveryDays = FAST_DELIVERY_STATES.has(state) ? 3 : 5;
     const estimatedDate = new Date();
     estimatedDate.setDate(estimatedDate.getDate() + deliveryDays);
 
@@ -246,6 +246,24 @@ export default function ProductDetailPage() {
     [resolvedProduct?.description]
   );
 
+  const productMedia = useMemo(() => {
+    if (!resolvedProduct) return [];
+
+    const imageMedia = resolvedProduct.images.map((url, index) => ({
+      id: `img-${index}`,
+      type: "image" as const,
+      url,
+    }));
+
+    const videoMedia = (resolvedProduct.videos || []).map((url, index) => ({
+      id: `video-${index}`,
+      type: "video" as const,
+      url,
+    }));
+
+    return [...imageMedia, ...videoMedia];
+  }, [resolvedProduct]);
+
   if (!resolvedProduct && (loading || productsLoading)) {
     return null;
   }
@@ -261,30 +279,52 @@ export default function ProductDetailPage() {
     );
   }
 
+  const activeMedia = productMedia[selectedMediaIndex] || productMedia[0];
+
   return (
     <div className="pt-12 space-y-8">
       <div className="space-y-12">
         <div className="grid gap-8 lg:grid-cols-2">
           <div className="space-y-4">
             <div className="relative aspect-[9/10] overflow-hidden rounded-2xl border border-white/10 bg-white/5">
-              <Image
-                src={resolvedProduct.images[selectedImage]}
-                alt={resolvedProduct.name}
-                fill
-                sizes="(max-width: 1024px) 100vw, 50vw"
-                className="object-cover"
-              />
+              {activeMedia?.type === "video" ? (
+                <video
+                  key={activeMedia.url}
+                  src={activeMedia.url}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <Image
+                  src={activeMedia?.url || resolvedProduct.images[0]}
+                  alt={resolvedProduct.name}
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  className="object-cover"
+                />
+              )}
             </div>
             <div className="grid grid-cols-4 gap-3">
-              {resolvedProduct.images.map((image, idx) => (
+              {productMedia.map((media, idx) => (
                 <button
-                  key={image}
-                  onClick={() => setSelectedImage(idx)}
+                  key={media.id}
+                  onClick={() => setSelectedMediaIndex(idx)}
                   className={`relative aspect-[9/10] overflow-hidden rounded-xl border ${
-                    selectedImage === idx ? "border-champagne" : "border-white/10"
+                    selectedMediaIndex === idx ? "border-champagne" : "border-white/10"
                   }`}
                 >
-                  <Image src={image} alt={`${resolvedProduct.name} ${idx + 1}`} fill sizes="25vw" className="object-cover" />
+                  {media.type === "video" ? (
+                    <>
+                      <video src={media.url} muted playsInline preload="metadata" className="h-full w-full object-cover" />
+                      <span className="absolute bottom-2 right-2 rounded bg-black/65 px-1.5 py-0.5 text-[10px] font-semibold tracking-[0.08em] text-white">
+                        VIDEO
+                      </span>
+                    </>
+                  ) : (
+                    <Image src={media.url} alt={`${resolvedProduct.name} ${idx + 1}`} fill sizes="25vw" className="object-cover" />
+                  )}
                 </button>
               ))}
             </div>

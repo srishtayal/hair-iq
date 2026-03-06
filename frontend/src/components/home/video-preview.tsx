@@ -71,12 +71,13 @@ export default function VideoPreview() {
       </div>
       <div className="flex snap-x gap-5 overflow-x-auto pb-2 bg-transparent">
         {videos.slice(0, 4).map((video) => (
-          <div key={video.id} className="min-w-[200px] flex-1 snap-start md:min-w-[260px]">
+          <div key={video.id} className="flex min-w-[200px] flex-1 snap-start md:min-w-[260px]">
             <VideoCard
               video={video}
               autoPreviewEnabled={isTouchDevice}
               isAutoFocused={autoPreviewVideoId === video.id}
               onVisibilityChange={handleVisibilityChange}
+              uniformHeight
             />
           </div>
         ))}
