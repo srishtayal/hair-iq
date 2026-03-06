@@ -74,7 +74,7 @@ export default function ProductCard({ product }: { product: Product }) {
               </option>
               {product.variants.map((variant) => (
                 <option key={variant.id} value={variant.id} disabled={variant.stock <= 0}>
-                  {variant.label} - {currency(variant.price)}
+                  {variant.label}
                   {variant.stock <= 0 ? " (Out of stock)" : ""}
                 </option>
               ))}

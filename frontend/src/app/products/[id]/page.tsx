@@ -13,6 +13,7 @@ import { currency } from "@/lib/utils";
 import { Product } from "@/types";
 import Image from "next/image";
 import { useParams } from "next/navigation";
+import { Fragment } from "react";
 import { useEffect, useMemo, useState } from "react";
 
 type DeliveryLookup = Record<string, string>;
@@ -58,6 +59,17 @@ const toLongDescriptionBullets = (value: string) => {
     .map((line) => line.trim())
     .map((line) => line.replace(/^[-*•]\s*/, "").replace(/^\d+[\).\s-]+/, "").trim())
     .filter(Boolean);
+};
+
+const renderBoldText = (value: string) => {
+  const parts = value.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, index) => {
+    const isBoldToken = part.startsWith("**") && part.endsWith("**") && part.length > 4;
+    if (isBoldToken) {
+      return <strong key={`${part}-${index}`}>{part.slice(2, -2)}</strong>;
+    }
+    return <Fragment key={`${part}-${index}`}>{part}</Fragment>;
+  });
 };
 
 const parseDeliveryLookup = (rawCsv: string): DeliveryLookup => {
@@ -247,8 +259,6 @@ export default function ProductDetailPage() {
     );
   }
 
-  const variant = resolvedProduct.variants.find((variantItem) => variantItem.id === selectedVariant) ?? resolvedProduct.variants[0];
-
   return (
     <div className="pt-12 space-y-8">
       <div className="space-y-12">
@@ -307,7 +317,7 @@ export default function ProductDetailPage() {
               </div>
             </div>
 
-            <p className="text-2xl font-semibold text-coal">{currency(variant?.price ?? resolvedProduct.basePrice)}</p>
+            <p className="text-2xl font-semibold text-coal">{currency(resolvedProduct.basePrice)}</p>
             <section className="rounded-2xl border border-black/10 bg-gradient-to-br from-white via-orange-50/70 to-white p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">Delivery Estimate</p>
               <div className="mt-3 space-y-2">
@@ -326,7 +336,7 @@ export default function ProductDetailPage() {
             </section>
             <div className="flex flex-wrap gap-3">
               <button
-                onClick={() => addToCart(resolvedProduct.id, variant?.id)}
+                onClick={() => addToCart(resolvedProduct.id, selectedVariant || resolvedProduct.variants[0]?.id)}
                 className="rounded-full bg-champagne px-6 py-3 text-sm font-semibold text-coal hover:bg-[#e3c39d]"
               >
                 Add to Cart
@@ -345,7 +355,7 @@ export default function ProductDetailPage() {
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Description</p>
           <ul className="list-disc space-y-2 pl-5 text-sm text-gray-700 md:text-base">
             {longDescriptionBullets.map((point, index) => (
-              <li key={`${point}-${index}`}>{point}</li>
+              <li key={`${point}-${index}`}>{renderBoldText(point)}</li>
             ))}
           </ul>
         </section>

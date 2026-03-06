@@ -193,8 +193,31 @@ Response:
     "razorpayOrderId": "order_...",
     "razorpayKeyId": "rzp_test_...",
     "amount": 49900,
-    "currency": "INR"
+    "currency": "INR",
+    "codEnabled": false
   }
+}
+```
+
+If COD is enabled (`RAZORPAY_ENABLE_COD=true`), send Magic Checkout line items:
+
+```json
+{
+  "amountInRupees": 499,
+  "lineItems": [
+    {
+      "sku": "VARIANT_1",
+      "variant_id": "VARIANT_1",
+      "price": 49900,
+      "offer_price": 49900,
+      "tax_amount": 0,
+      "quantity": 1,
+      "name": "Signature Lace Pro",
+      "description": "Breathable lace hair patch",
+      "image_url": "https://example.com/image.jpg",
+      "product_url": "https://example.com/products/signature-lace-pro"
+    }
+  ]
 }
 ```
 
@@ -209,6 +232,22 @@ Response:
   "razorpay_signature": "..."
 }
 ```
+
+### Magic Checkout support APIs (public)
+
+`POST /magic-checkout/shipping-info`
+
+`POST /magic-checkout/get-promotions`
+
+`POST /magic-checkout/apply-promotions`
+
+These APIs are used by Razorpay Magic Checkout for COD/shipping/promotions.
+
+Set these in Razorpay Magic Checkout dashboard:
+
+- Shipping Info API URL: `https://<your-domain>/magic-checkout/shipping-info`
+- Get Promotions API URL: `https://<your-domain>/magic-checkout/get-promotions`
+- Apply Promotions API URL: `https://<your-domain>/magic-checkout/apply-promotions`
 
 ## Razorpay Sample Code
 

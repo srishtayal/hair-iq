@@ -14,7 +14,7 @@ const buildProductShowPreview = () => async (response) => {
 
   response.record.params.variantsPreview = variants.length
     ? variants
-        .map((v) => `${v.sku} | ${v.size || '-'} | ${v.color || '-'} | Rs ${v.price / 100} | stock=${v.stockQuantity}`)
+        .map((v) => `${v.sku} | ${v.size || '-'} | ${v.color || '-'} | stock=${v.stockQuantity}`)
         .join('\n')
     : 'No variants yet';
 
@@ -128,8 +128,8 @@ const mountAdmin = async (app) => {
         resource: ProductVariant,
         options: {
           navigation: { name: 'Catalog', icon: 'Product' },
-          listProperties: ['id', 'productId', 'sku', 'price', 'stockQuantity', 'size', 'color', 'density'],
-          editProperties: ['productId', 'sku', 'price', 'stockQuantity', 'size', 'color', 'density'],
+          listProperties: ['id', 'productId', 'sku', 'stockQuantity', 'size', 'color', 'density'],
+          editProperties: ['productId', 'sku', 'stockQuantity', 'size', 'color', 'density'],
           properties: {
             productId: {
               reference: 'products',

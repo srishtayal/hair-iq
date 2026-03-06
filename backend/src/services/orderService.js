@@ -15,6 +15,49 @@ const toInt = (value, fallback = 0) => {
   return parsed;
 };
 
+const isMagicCodEnabled = () => String(process.env.RAZORPAY_ENABLE_COD || '').toLowerCase() === 'true';
+
+const normalizeMagicLineItems = (lineItems) => {
+  if (!Array.isArray(lineItems) || !lineItems.length) {
+    throw createError('lineItems are required when RAZORPAY_ENABLE_COD=true', 400);
+  }
+
+  return lineItems.map((item, index) => {
+    const sku = String(item?.sku || '').trim();
+    const variantId = String(item?.variant_id || '').trim();
+    const name = String(item?.name || '').trim();
+    const description = String(item?.description || '').trim();
+    const imageUrl = String(item?.image_url || '').trim();
+    const quantity = toInt(item?.quantity, 0);
+    const price = toInt(item?.price, -1);
+    const offerPrice = toInt(item?.offer_price, -1);
+    const taxAmount = Math.max(0, toInt(item?.tax_amount, 0));
+
+    if (!sku || !variantId || !name || !description || !imageUrl || quantity < 1 || price < 0 || offerPrice < 0) {
+      throw createError(`Invalid line item at index ${index}`, 400);
+    }
+
+    const normalized = {
+      sku,
+      variant_id: variantId,
+      price,
+      offer_price: offerPrice,
+      tax_amount: taxAmount,
+      quantity,
+      name,
+      description,
+      image_url: imageUrl,
+    };
+
+    const productUrl = String(item?.product_url || '').trim();
+    if (productUrl) {
+      normalized.product_url = productUrl;
+    }
+
+    return normalized;
+  });
+};
+
 const getRazorpayClient = () => {
   const keyId = process.env.RAZORPAY_KEY_ID;
   const keySecret = process.env.RAZORPAY_KEY_SECRET;
@@ -55,30 +98,118 @@ const verifyRazorpayPaymentSignature = ({ razorpayOrderId, razorpayPaymentId, ra
   }
 };
 
-const createPaymentOrder = async ({ amountInRupees, userId }) => {
+const createPaymentOrder = async ({ amountInRupees, userId, lineItems }) => {
   const parsedAmount = Number(amountInRupees);
 
   if (Number.isNaN(parsedAmount) || parsedAmount <= 0) {
     throw createError('amountInRupees must be a number greater than 0', 400);
   }
 
+  const codEnabledByEnv = isMagicCodEnabled();
   const amountInPaise = Math.round(parsedAmount * 100);
   const { client, keyId } = getRazorpayClient();
-
-  const razorpayOrder = await client.orders.create({
+  let codEnabled = false;
+  const requestPayload = {
     amount: amountInPaise,
     currency: 'INR',
     receipt: `quick_${Date.now()}`,
     notes: {
       userId: userId || 'guest',
     },
-  });
+  };
+
+  if (codEnabledByEnv && Array.isArray(lineItems) && lineItems.length) {
+    const normalizedLineItems = normalizeMagicLineItems(lineItems);
+    const lineItemsTotal = normalizedLineItems.reduce((sum, item) => sum + item.offer_price * item.quantity, 0);
+    requestPayload.amount = lineItemsTotal;
+    requestPayload.line_items_total = lineItemsTotal;
+    requestPayload.line_items = normalizedLineItems;
+    codEnabled = true;
+  }
+
+  const razorpayOrder = await client.orders.create(requestPayload);
 
   return {
     razorpayOrderId: razorpayOrder.id,
     razorpayKeyId: keyId,
     amount: razorpayOrder.amount,
     currency: razorpayOrder.currency,
+    codEnabled,
+  };
+};
+
+const getMagicCheckoutShippingInfo = ({ addresses }) => {
+  const codEnabled = isMagicCodEnabled();
+  const incomingAddresses = Array.isArray(addresses) ? addresses : [];
+
+  return {
+    addresses: incomingAddresses.map((address, index) => {
+      const zipcode = String(address?.zipcode || '');
+      const isIndianZip = /^\d{6}$/.test(zipcode);
+      const country = String(address?.country || 'IN').slice(0, 2).toUpperCase();
+      const id = String(address?.id ?? index);
+
+      return {
+        id,
+        zipcode,
+        country,
+        shipping_methods: [
+          {
+            id: 'standard',
+            description: 'Standard delivery in 3-5 business days',
+            name: 'Standard Delivery',
+            serviceable: isIndianZip,
+            shipping_fee: 0,
+            cod: codEnabled && isIndianZip,
+            cod_fee: 0,
+          },
+        ],
+      };
+    }),
+  };
+};
+
+const getMagicCheckoutPromotions = () => {
+  const promoCode = String(process.env.MAGIC_CHECKOUT_PROMO_CODE || '').trim();
+  const promoDiscount = Math.max(0, toInt(process.env.MAGIC_CHECKOUT_PROMO_DISCOUNT_PAISE, 0));
+
+  if (!promoCode || promoDiscount <= 0) {
+    return { promotions: [] };
+  }
+
+  return {
+    promotions: [
+      {
+        code: promoCode,
+        summary: `Save ₹${Math.floor(promoDiscount / 100)} on checkout`,
+        description: `Flat discount of ₹${Math.floor(promoDiscount / 100)} on your order`,
+      },
+    ],
+  };
+};
+
+const applyMagicCheckoutPromotion = ({ code }) => {
+  const promoCode = String(process.env.MAGIC_CHECKOUT_PROMO_CODE || '').trim();
+  const promoDiscount = Math.max(0, toInt(process.env.MAGIC_CHECKOUT_PROMO_DISCOUNT_PAISE, 0));
+  const requestedCode = String(code || '').trim();
+
+  if (!promoCode || promoDiscount <= 0) {
+    throw createError('No active promotions', 400);
+  }
+
+  if (!requestedCode || requestedCode.toLowerCase() !== promoCode.toLowerCase()) {
+    throw createError('Invalid promotion code', 400);
+  }
+
+  return {
+    promotion: {
+      reference_id: `promo_${promoCode}`,
+      code: promoCode,
+      type: 'coupon',
+      value: promoDiscount,
+      value_type: 'fixed_amount',
+      description: `Flat discount of ₹${Math.floor(promoDiscount / 100)}`,
+    },
   };
 };
 
@@ -91,7 +222,7 @@ const normalizeItems = async ({ userId, cartId, items, transaction }) => {
 
     const cartItems = await CartItem.findAll({
       where: { cartId: cart.id },
-      include: [{ model: ProductVariant, as: 'productVariant' }],
+      include: [{ model: ProductVariant, as: 'productVariant', include: [{ model: Product, as: 'product', attributes: ['id', 'price'] }] }],
       transaction,
       lock: transaction.LOCK.UPDATE,
     });
@@ -122,6 +253,7 @@ const normalizeItems = async ({ userId, cartId, items, transaction }) => {
     }
 
     const variant = await ProductVariant.findByPk(productVariantId, {
+      include: [{ model: Product, as: 'product', attributes: ['id', 'price'] }],
       transaction,
       lock: transaction.LOCK.UPDATE,
     });
@@ -158,6 +290,12 @@ const computeDiscount = (coupon, itemsSubtotal) => {
   return Math.max(0, discount);
 };
 
+const resolveUnitPrice = (variant) => {
+  const productPrice = Number(variant?.product?.price || 0);
+  if (productPrice > 0) return productPrice;
+  return Number(variant?.price || 0);
+};
+
 const createOrder = async ({ userId, cartId, items, addressId, couponCode }) => {
   if (!addressId) {
     throw createError('addressId is required', 400);
@@ -183,7 +321,7 @@ const createOrder = async ({ userId, cartId, items, addressId, couponCode }) => 
       }
     }
 
-    const itemsSubtotal = normalizedItems.reduce((sum, item) => sum + item.variant.price * item.quantity, 0);
+    const itemsSubtotal = normalizedItems.reduce((sum, item) => sum + resolveUnitPrice(item.variant) * item.quantity, 0);
 
     let coupon = null;
     if (couponCode) {
@@ -217,7 +355,7 @@ const createOrder = async ({ userId, cartId, items, addressId, couponCode }) => 
         orderId: order.id,
         productVariantId: item.productVariantId,
         quantity: item.quantity,
-        priceAtPurchase: item.variant.price,
+        priceAtPurchase: resolveUnitPrice(item.variant),
       })),
       { transaction }
     );
@@ -278,7 +416,7 @@ const getOrdersByUser = async (userId) => {
               {
                 model: Product,
                 as: 'product',
-                attributes: ['id', 'name', 'slug', 'category'],
+                attributes: ['id', 'name', 'slug', 'category', 'price'],
               },
             ],
           },
@@ -320,7 +458,7 @@ const getOrdersByUser = async (userId) => {
             size: item.productVariant.size,
             color: item.productVariant.color,
             density: item.productVariant.density,
-            price: item.productVariant.price,
+            price: item.priceAtPurchase,
             sku: item.productVariant.sku,
           }
         : null,
@@ -431,8 +569,11 @@ const processPaymentCaptured = async (payload) => {
 };
 
 module.exports = {
+  applyMagicCheckoutPromotion,
   createPaymentOrder,
   createOrder,
+  getMagicCheckoutPromotions,
+  getMagicCheckoutShippingInfo,
   getOrdersByUser,
   verifyRazorpayPaymentSignature,
   verifyRazorpayWebhookSignature,

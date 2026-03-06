@@ -30,6 +30,7 @@ const createPaymentOrder = async (req, res, next) => {
     const data = await orderService.createPaymentOrder({
       amountInRupees: req.body.amountInRupees,
       userId: req.user?.id || null,
+      lineItems: req.body.lineItems,
     });
 
     return res.status(201).json({ success: true, data });
@@ -99,7 +100,42 @@ const razorpayWebhook = async (req, res, next) => {
   }
 };
 
+const magicCheckoutShippingInfo = async (req, res, next) => {
+  try {
+    const data = orderService.getMagicCheckoutShippingInfo({
+      addresses: req.body?.addresses,
+    });
+
+    return res.status(200).json(data);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const magicCheckoutGetPromotions = async (req, res, next) => {
+  try {
+    const data = orderService.getMagicCheckoutPromotions();
+    return res.status(200).json(data);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const magicCheckoutApplyPromotions = async (req, res, next) => {
+  try {
+    const data = orderService.applyMagicCheckoutPromotion({
+      code: req.body?.code,
+    });
+    return res.status(200).json(data);
+  } catch (error) {
+    return next(error);
+  }
+};
+
 module.exports = {
+  magicCheckoutApplyPromotions,
+  magicCheckoutGetPromotions,
+  magicCheckoutShippingInfo,
   createPaymentOrder,
   createOrder,
   getOrders,

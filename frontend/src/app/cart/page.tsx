@@ -15,6 +15,7 @@ type RazorpayOrderResponse = {
     razorpayKeyId: string;
     amount: number;
     currency: string;
+    codEnabled: boolean;
   };
 };
 
@@ -22,6 +23,16 @@ type VerifySignatureResponse = {
   success: true;
   data: {
     verified: boolean;
+  };
+};
+
+type VerifyFirebaseResponse = {
+  success: true;
+  data: {
+    token: string;
+    user: { id: string; name: string; phone: string; email: string | null; role: string };
+    needsProfile: boolean;
+    isNewUser: boolean;
   };
 };
 
@@ -38,6 +49,8 @@ type RazorpayCheckoutOptions = {
   name: string;
   description: string;
   order_id: string;
+  one_click_checkout?: boolean;
+  show_coupons?: boolean;
   handler: (response: RazorpayHandlerPayload) => void | Promise<void>;
   prefill?: {
     name?: string;
@@ -62,12 +75,27 @@ declare global {
   }
 }
 
-const loadRazorpayScript = async () => {
+type MagicLineItem = {
+  sku: string;
+  variant_id: string;
+  price: number;
+  offer_price: number;
+  tax_amount: number;
+  quantity: number;
+  name: string;
+  description: string;
+  image_url: string;
+  product_url?: string;
+};
+
+const loadRazorpayScript = async (useMagicCheckout: boolean) => {
   if (window.Razorpay) return true;
 
   return new Promise<boolean>((resolve) => {
     const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.src = useMagicCheckout
+      ? "https://checkout.razorpay.com/v1/magic-checkout.js"
+      : "https://checkout.razorpay.com/v1/checkout.js";
     script.async = true;
     script.onload = () => resolve(true);
     script.onerror = () => resolve(false);
@@ -76,43 +104,128 @@ const loadRazorpayScript = async () => {
 };
 
 export default function CartPage() {
-  const { cartItems, cartSubtotal, isAuthenticated, goToAuth, user, clearCart } = useStore();
+  const { cartItems, cartSubtotal, isAuthenticated, goToAuth, user, clearCart, getCartProduct } = useStore();
   const subtotal = cartSubtotal;
   const [isProcessing, setIsProcessing] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [checkoutSuccess, setCheckoutSuccess] = useState<string | null>(null);
+  const codEnabled = process.env.NEXT_PUBLIC_RAZORPAY_ENABLE_COD === "true";
+
+  const getServerToken = async () => {
+    const existing = localStorage.getItem("hairiq_server_token");
+    if (existing) {
+      return existing;
+    }
+
+    if (!user) {
+      throw new Error("Please login to continue checkout.");
+    }
+
+    const firebaseIdToken = await user.getIdToken(true);
+    const authResponse = await apiRequest<VerifyFirebaseResponse>("/auth/verify-firebase", {
+      method: "POST",
+      body: JSON.stringify({ idToken: firebaseIdToken }),
+    });
+
+    localStorage.setItem("hairiq_server_token", authResponse.data.token);
+    return authResponse.data.token;
+  };
+
+  const buildMagicLineItems = (): MagicLineItem[] => {
+    return cartItems.map((item) => {
+      const product = getCartProduct(item);
+      if (!product) {
+        throw new Error("Some cart items are unavailable. Refresh and try again.");
+      }
+
+      const variant = product.variants.find((entry) => entry.id === item.variantId) ?? product.variants[0];
+      const unitPrice = Math.round((variant?.price ?? product.basePrice) * 100);
+
+      if (unitPrice <= 0) {
+        throw new Error(`Invalid price for ${product.name}`);
+      }
+
+      const productUrl =
+        typeof window !== "undefined" && product.slug ? `${window.location.origin}/products/${product.slug}` : undefined;
+
+      return {
+        sku: variant?.id || item.variantId,
+        variant_id: item.variantId,
+        price: unitPrice,
+        offer_price: unitPrice,
+        tax_amount: 0,
+        quantity: item.quantity,
+        name: product.name,
+        description: product.shortDescription || product.description || product.name,
+        image_url: product.images[0] || "https://images.unsplash.com/photo-1503951458645-643d53bfd90f",
+        ...(productUrl ? { product_url: productUrl } : {}),
+      };
+    });
+  };
 
   const handleCheckout = async () => {
+    setCheckoutError(null);
+    setCheckoutSuccess(null);
+
     if (!isAuthenticated) {
       goToAuth("/cart");
       return;
     }
 
-    if (!cartItems.length || cartSubtotal <= 0 || isProcessing) {
+    if (!cartItems.length) {
+      alert("Your cart is empty.");
+      return;
+    }
+
+    if (cartSubtotal <= 0) {
+      alert("Unable to checkout because total amount is 0. Please update product pricing.");
+      return;
+    }
+
+    if (isProcessing) {
       return;
     }
 
     setIsProcessing(true);
 
     try {
-      const sdkLoaded = await loadRazorpayScript();
+      const sdkLoaded = await loadRazorpayScript(codEnabled);
       if (!sdkLoaded || !window.Razorpay) {
         throw new Error("Unable to load Razorpay SDK");
       }
 
-      const serverToken = localStorage.getItem("hairiq_server_token");
-      if (!serverToken) {
-        throw new Error("Missing login token. Please login again.");
-      }
+      let serverToken = await getServerToken();
+      const lineItems = codEnabled ? buildMagicLineItems() : undefined;
 
-      const orderResponse = await apiRequest<RazorpayOrderResponse>(
-        "/payments/create-order",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            amountInRupees: cartSubtotal,
-          }),
-        },
-        serverToken
-      );
+      let orderResponse: RazorpayOrderResponse;
+      try {
+        orderResponse = await apiRequest<RazorpayOrderResponse>(
+          "/payments/create-order",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              amountInRupees: cartSubtotal,
+              lineItems,
+            }),
+          },
+          serverToken
+        );
+      } catch (requestError) {
+        // Retry once in case backend JWT has expired.
+        localStorage.removeItem("hairiq_server_token");
+        serverToken = await getServerToken();
+        orderResponse = await apiRequest<RazorpayOrderResponse>(
+          "/payments/create-order",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              amountInRupees: cartSubtotal,
+              lineItems,
+            }),
+          },
+          serverToken
+        );
+      }
 
       const checkout = new window.Razorpay({
         key: orderResponse.data.razorpayKeyId,
@@ -121,6 +234,8 @@ export default function CartPage() {
         currency: orderResponse.data.currency,
         name: "Hair IQ",
         description: "Cart checkout",
+        one_click_checkout: orderResponse.data.codEnabled,
+        show_coupons: orderResponse.data.codEnabled,
         prefill: {
           name: user?.displayName || undefined,
           email: user?.email || undefined,
@@ -136,7 +251,7 @@ export default function CartPage() {
           });
 
           clearCart();
-          alert("Payment verified successfully.");
+          setCheckoutSuccess("Payment verified successfully.");
           setIsProcessing(false);
         },
         modal: {
@@ -149,7 +264,7 @@ export default function CartPage() {
       checkout.open();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to start checkout";
-      alert(message);
+      setCheckoutError(message);
       setIsProcessing(false);
     }
   };
@@ -199,6 +314,9 @@ export default function CartPage() {
             >
               {isProcessing ? "Processing..." : "Proceed to Checkout"}
             </button>
+            {codEnabled ? <p className="mt-2 text-xs text-gray-600">COD is enabled in Razorpay Magic Checkout.</p> : null}
+            {checkoutError ? <p className="mt-3 text-sm text-red-700">{checkoutError}</p> : null}
+            {checkoutSuccess ? <p className="mt-3 text-sm text-green-700">{checkoutSuccess}</p> : null}
           </aside>
         </div>
       )}

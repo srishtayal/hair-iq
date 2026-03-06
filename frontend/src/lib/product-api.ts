@@ -115,17 +115,19 @@ const mapProduct = (item: BackendProduct): Product => {
 
   const resolvedDescription = item.longDescription || item.description || item.shortDescription || "Premium Hair IQ product.";
   const resolvedShortDescription = item.shortDescription || toShortDescription(resolvedDescription);
+  const effectivePrice = item.price > 0 ? item.price : (item.topVariant?.price ?? 0);
+
   const mappedVariants = [...variants]
     .sort(compareVariantSizes)
     .map((variant) => ({
     id: variant.id,
     label: getVariantLabel(variant),
-    price: variant.price,
+    price: effectivePrice || variant.price,
     stock: variant.stockQuantity
     }));
 
-  const fallbackPrice = item.topVariant?.price ?? item.price ?? 0;
-  const basePrice = mappedVariants[0]?.price ?? fallbackPrice;
+  const fallbackPrice = effectivePrice || item.topVariant?.price || 0;
+  const basePrice = fallbackPrice;
 
   return {
     id: item.id,

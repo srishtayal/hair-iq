@@ -208,8 +208,7 @@ export const StoreProvider = ({ children }: { children: React.ReactNode }) => {
     () =>
       cartItems.reduce((sum, item) => {
         const product = products.find((p) => p.id === item.productId);
-        const variant = product?.variants.find((v) => v.id === item.variantId);
-        return sum + (variant?.price ?? product?.basePrice ?? 0) * item.quantity;
+        return sum + (product?.basePrice ?? 0) * item.quantity;
       }, 0),
     [cartItems, products]
   );

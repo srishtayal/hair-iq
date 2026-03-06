@@ -38,6 +38,12 @@ const checkStock = (variant, quantity) => {
   }
 };
 
+const resolveUnitPrice = (variant, product) => {
+  const productPrice = Number(product?.price || 0);
+  if (productPrice > 0) return productPrice;
+  return Number(variant?.price || 0);
+};
+
 const mapCartDetails = (cart) => {
   const items = (cart.items || []).map((item) => {
     const variant = item.productVariant;
@@ -49,7 +55,8 @@ const mapCartDetails = (cart) => {
       (product?.media || []).sort((a, b) => a.sortOrder - b.sortOrder)[0]?.url ||
       null;
 
-    const lineTotal = (variant?.price || 0) * item.quantity;
+    const unitPrice = resolveUnitPrice(variant, product);
+    const lineTotal = unitPrice * item.quantity;
 
     return {
       id: item.id,
@@ -61,7 +68,7 @@ const mapCartDetails = (cart) => {
             size: variant.size,
             color: variant.color,
             density: variant.density,
-            price: variant.price,
+            price: unitPrice,
             stockQuantity: variant.stockQuantity,
             sku: variant.sku,
           }
@@ -105,7 +112,7 @@ const loadCartWithItems = async (cartId) => {
               {
                 model: Product,
                 as: 'product',
-                attributes: ['id', 'name', 'slug', 'category'],
+                attributes: ['id', 'name', 'slug', 'category', 'price'],
                 include: [
                   {
                     model: ProductMedia,

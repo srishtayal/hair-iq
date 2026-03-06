@@ -13,7 +13,7 @@ export default function CartItem({ item }: { item: CartItemType }) {
   if (!product) return null;
 
   const variant = product.variants.find((variantItem) => variantItem.id === item.variantId) ?? product.variants[0];
-  const linePrice = (variant?.price ?? product.basePrice) * item.quantity;
+  const linePrice = product.basePrice * item.quantity;
 
   return (
     <article className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 sm:flex-row">

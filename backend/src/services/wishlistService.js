@@ -10,9 +10,7 @@ const mapProductSummary = (product) => {
   const variants = product.variants || [];
   const media = product.media || [];
 
-  const topVariant = variants.length
-    ? [...variants].sort((a, b) => a.price - b.price)[0]
-    : null;
+  const topVariant = variants.length ? variants[0] : null;
 
   const thumbnail = media
     .filter((m) => m.type === 'image')
@@ -26,9 +24,9 @@ const mapProductSummary = (product) => {
     isActive: product.isActive,
     thumbnail,
     topVariant: topVariant
-      ? {
+        ? {
           id: topVariant.id,
-          price: topVariant.price,
+          price: Number(product.price || 0) > 0 ? Number(product.price) : Number(topVariant.price || 0),
           size: topVariant.size,
           color: topVariant.color,
           density: topVariant.density,
@@ -65,7 +63,7 @@ const getWishlist = async (userId) => {
       {
         model: Product,
         as: 'product',
-        attributes: ['id', 'name', 'slug', 'category', 'isActive'],
+        attributes: ['id', 'name', 'slug', 'category', 'isActive', 'price'],
         include: [
           {
             model: ProductVariant,

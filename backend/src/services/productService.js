@@ -43,8 +43,13 @@ const normalizePaging = (page, limit) => {
 
 const pickTopVariant = (variants) => {
   if (!variants || !variants.length) return null;
-  const sorted = [...variants].sort((a, b) => a.price - b.price);
-  return sorted[0];
+  return variants[0];
+};
+
+const resolveEffectivePrice = (product, topVariant) => {
+  const productPrice = Number(product?.price || 0);
+  if (productPrice > 0) return productPrice;
+  return Number(topVariant?.price || 0);
 };
 
 const pickThumbnail = (media) => {
@@ -54,12 +59,12 @@ const pickThumbnail = (media) => {
   return [...media].sort((a, b) => a.sortOrder - b.sortOrder)[0]?.url || null;
 };
 
-const serializeVariant = (variant) => ({
+const serializeVariant = (variant, productPrice) => ({
   id: variant.id,
   size: variant.size,
   color: variant.color,
   density: variant.density,
-  price: variant.price,
+  price: productPrice,
   stockQuantity: variant.stockQuantity,
   sku: variant.sku,
 });
@@ -72,9 +77,10 @@ const serializeMedia = (media) => ({
 });
 
 const mapProductWithDetails = (product) => {
-  const variants = [...(product.variants || [])].sort((a, b) => a.price - b.price);
+  const variants = [...(product.variants || [])];
   const media = [...(product.media || [])].sort((a, b) => a.sortOrder - b.sortOrder);
   const topVariant = pickTopVariant(variants);
+  const effectivePrice = resolveEffectivePrice(product, topVariant);
   const thumbnail = pickThumbnail(media);
   const longDescription = product.longDescription || product.description || null;
   const shortDescription = product.shortDescription || (longDescription ? longDescription.slice(0, 160) : null);
@@ -86,13 +92,13 @@ const mapProductWithDetails = (product) => {
     description: longDescription,
     shortDescription,
     longDescription,
-    price: product.price,
+    price: effectivePrice,
     category: product.category,
     isActive: product.isActive,
     quantity: product.quantity,
     thumbnail,
-    topVariant: topVariant ? serializeVariant(topVariant) : null,
-    variants: variants.map(serializeVariant),
+    topVariant: topVariant ? serializeVariant(topVariant, effectivePrice) : null,
+    variants: variants.map((variant) => serializeVariant(variant, effectivePrice)),
     media: media.map(serializeMedia),
   };
 };
@@ -168,7 +174,7 @@ const getProductBySlug = async (slug) => {
       },
     ],
     order: [
-      [{ model: ProductVariant, as: 'variants' }, 'price', 'ASC'],
+      [{ model: ProductVariant, as: 'variants' }, 'createdAt', 'ASC'],
       [{ model: ProductMedia, as: 'media' }, 'sortOrder', 'ASC'],
     ],
   });
@@ -247,10 +253,10 @@ const createVariant = async (productId, payload) => {
     throw createError('Product not found', 404);
   }
 
-  const { size, color, density, price, stockQuantity, sku } = payload;
+  const { size, color, density, stockQuantity, sku } = payload;
 
-  if (price === undefined || stockQuantity === undefined || !sku) {
-    throw createError('price, stockQuantity and sku are required', 400);
+  if (stockQuantity === undefined || !sku) {
+    throw createError('stockQuantity and sku are required', 400);
   }
 
   const variant = await ProductVariant.create({
@@ -258,7 +264,7 @@ const createVariant = async (productId, payload) => {
     size: size || null,
     color: color || null,
     density: density || null,
-    price,
+    price: product.price,
     stockQuantity,
     sku,
   });
@@ -272,7 +278,10 @@ const updateVariant = async (productId, variantId, payload) => {
     throw createError('Variant not found', 404);
   }
 
-  await variant.update(payload);
+  const updates = { ...payload };
+  delete updates.price;
+
+  await variant.update(updates);
   return variant;
 };
 
