@@ -105,6 +105,13 @@ const formatOrderDate = (value: string) =>
     year: "numeric",
   });
 
+const isPastOrderStatus = (status: string) => {
+  const normalized = status.toLowerCase();
+  return ["delivered", "completed", "cancelled", "failed", "refunded", "returned"].some((value) =>
+    normalized.includes(value)
+  );
+};
+
 const accountPerks = ["Priority Support", "Fast Reorders", "Secure Checkout"];
 
 export default function ProfilePage() {
@@ -121,6 +128,7 @@ export default function ProfilePage() {
   const [profileEmail, setProfileEmail] = useState("");
 
   const [orders, setOrders] = useState<OrderSummary[]>([]);
+  const [ordersTab, setOrdersTab] = useState<"active" | "past">("active");
   const [addresses, setAddresses] = useState<AddressRecord[]>([]);
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
   const [addressForm, setAddressForm] = useState<AddressPayload>(emptyAddress);
@@ -355,81 +363,100 @@ export default function ProfilePage() {
     }
   };
 
-  const orderCards = useMemo(() => {
-    if (!orders.length) {
-      return (
-        <div className="rounded-2xl border border-dashed border-black/20 bg-gradient-to-br from-white to-orange-50/40 p-6 text-center">
-          <p className="text-sm font-medium text-coal">No orders yet.</p>
-          <p className="mt-1 text-xs text-gray-600">Once you place an order, tracking and payment status will show here.</p>
-        </div>
-      );
-    }
-
-    return orders.map((order) => (
-      <motion.article
-        key={order.id}
-        whileHover={{ y: -2 }}
-        className="rounded-2xl border border-black/10 bg-white p-4 text-sm shadow-sm transition hover:border-black/20"
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Order ID</p>
-            <p className="font-semibold text-coal">{order.id.slice(0, 8).toUpperCase()}</p>
-          </div>
-          <p className="text-xs text-gray-500">{formatOrderDate(order.createdAt)}</p>
-        </div>
-
-        <div className="mt-3 flex flex-wrap gap-2">
-          <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${statusTone(order.orderStatus)}`}>
-            {order.orderStatus}
-          </span>
-          <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${statusTone(order.paymentStatus)}`}>
-            Payment: {order.paymentStatus}
-          </span>
-        </div>
-
-        <div className="mt-4 space-y-2 border-t border-black/10 pt-3">
-          {order.items.length ? (
-            order.items.map((item) => (
-              <div key={item.id} className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-medium text-coal">{item.product?.name || "Product"}</p>
-                  <p className="text-xs text-gray-600">
-                    Qty {item.quantity}
-                    {item.variant?.sku ? ` | SKU ${item.variant.sku}` : ""}
-                  </p>
-                </div>
-                <p className="font-semibold text-coal">{currency(item.lineTotal || item.priceAtPurchase * item.quantity)}</p>
-              </div>
-            ))
-          ) : (
-            <p className="text-gray-600">No line items available.</p>
-          )}
-        </div>
-
-        <div className="mt-4 space-y-1 border-t border-black/10 pt-3">
-          <div className="flex items-center justify-between text-gray-600">
-            <p>Items</p>
-            <p>{currency(Math.max(0, order.totalAmount - order.shippingAmount + order.discountAmount))}</p>
-          </div>
-          <div className="flex items-center justify-between text-gray-600">
-            <p>Shipping</p>
-            <p>{currency(order.shippingAmount || 0)}</p>
-          </div>
-          {order.discountAmount > 0 ? (
-            <div className="flex items-center justify-between text-emerald-700">
-              <p>Discount</p>
-              <p>-{currency(order.discountAmount)}</p>
-            </div>
-          ) : null}
-          <div className="flex items-center justify-between text-base font-semibold text-coal">
-            <p>Total</p>
-            <p>{currency(order.totalAmount)}</p>
-          </div>
-        </div>
-      </motion.article>
-    ));
+  const { activeOrders, pastOrders } = useMemo(() => {
+    const sortedOrders = [...orders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return {
+      activeOrders: sortedOrders.filter((order) => !isPastOrderStatus(order.orderStatus)),
+      pastOrders: sortedOrders.filter((order) => isPastOrderStatus(order.orderStatus)),
+    };
   }, [orders]);
+
+  const orderCards = useMemo(() => {
+    const renderOrders = (orderList: OrderSummary[], emptyTitle: string, emptyDescription: string) => {
+      if (!orderList.length) {
+        return (
+          <div className="rounded-2xl border border-dashed border-black/20 bg-gradient-to-br from-white to-orange-50/40 p-6 text-center">
+            <p className="text-sm font-medium text-coal">{emptyTitle}</p>
+            <p className="mt-1 text-xs text-gray-600">{emptyDescription}</p>
+          </div>
+        );
+      }
+
+      return orderList.map((order) => (
+        <motion.article
+          key={order.id}
+          whileHover={{ y: -2 }}
+          className="rounded-2xl border border-black/10 bg-white p-4 text-sm shadow-sm transition hover:border-black/20"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Order ID</p>
+              <p className="font-semibold text-coal">{order.id.slice(0, 8).toUpperCase()}</p>
+            </div>
+            <p className="text-xs text-gray-500">{formatOrderDate(order.createdAt)}</p>
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${statusTone(order.orderStatus)}`}>
+              {order.orderStatus}
+            </span>
+            <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${statusTone(order.paymentStatus)}`}>
+              Payment: {order.paymentStatus}
+            </span>
+          </div>
+
+          <div className="mt-4 space-y-2 border-t border-black/10 pt-3">
+            {order.items.length ? (
+              order.items.map((item) => (
+                <div key={item.id} className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium text-coal">{item.product?.name || "Product"}</p>
+                    <p className="text-xs text-gray-600">
+                      Qty {item.quantity}
+                      {item.variant?.sku ? ` | SKU ${item.variant.sku}` : ""}
+                    </p>
+                  </div>
+                  <p className="font-semibold text-coal">{currency(item.lineTotal || item.priceAtPurchase * item.quantity)}</p>
+                </div>
+              ))
+            ) : (
+              <p className="text-gray-600">No line items available.</p>
+            )}
+          </div>
+
+          <div className="mt-4 space-y-1 border-t border-black/10 pt-3">
+            <div className="flex items-center justify-between text-gray-600">
+              <p>Items</p>
+              <p>{currency(Math.max(0, order.totalAmount - order.shippingAmount + order.discountAmount))}</p>
+            </div>
+            <div className="flex items-center justify-between text-gray-600">
+              <p>Shipping</p>
+              <p>{currency(order.shippingAmount || 0)}</p>
+            </div>
+            {order.discountAmount > 0 ? (
+              <div className="flex items-center justify-between text-emerald-700">
+                <p>Discount</p>
+                <p>-{currency(order.discountAmount)}</p>
+              </div>
+            ) : null}
+            <div className="flex items-center justify-between text-base font-semibold text-coal">
+              <p>Total</p>
+              <p>{currency(order.totalAmount)}</p>
+            </div>
+          </div>
+        </motion.article>
+      ));
+    };
+
+    return {
+      active: renderOrders(
+        activeOrders,
+        "No active orders.",
+        "Your ongoing and recently placed orders will appear here."
+      ),
+      past: renderOrders(pastOrders, "No past orders.", "Delivered and closed orders will appear here."),
+    };
+  }, [activeOrders, pastOrders]);
 
   const profileCompletion = useMemo(() => {
     const fields = [profileName, profilePhone, profileEmail];
@@ -695,8 +722,30 @@ export default function ProfilePage() {
           className="space-y-6"
         >
           <div className="rounded-3xl border border-black/10 bg-white p-6 shadow-sm">
-            <h3 className="font-semibold text-coal">Past Orders</h3>
-            <div className="mt-4 space-y-3">{orderCards}</div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="font-semibold text-coal">Orders</h3>
+              <div className="inline-flex rounded-full border border-black/10 bg-gray-50 p-1">
+                <button
+                  type="button"
+                  onClick={() => setOrdersTab("active")}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                    ordersTab === "active" ? "bg-coal text-white" : "text-gray-600 hover:text-coal"
+                  }`}
+                >
+                  Active ({activeOrders.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOrdersTab("past")}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                    ordersTab === "past" ? "bg-coal text-white" : "text-gray-600 hover:text-coal"
+                  }`}
+                >
+                  Past ({pastOrders.length})
+                </button>
+              </div>
+            </div>
+            <div className="mt-4 space-y-3">{ordersTab === "active" ? orderCards.active : orderCards.past}</div>
           </div>
 
           <div className="rounded-3xl border border-black/10 bg-white p-6 shadow-sm">
