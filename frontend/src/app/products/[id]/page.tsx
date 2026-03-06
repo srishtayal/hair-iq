@@ -48,6 +48,18 @@ const splitCsvLine = (line: string) => {
   return cells;
 };
 
+const toLongDescriptionBullets = (value: string) => {
+  const normalized = value.replace(/\r\n/g, "\n").trim();
+  if (!normalized) return [];
+
+  const rawLines = normalized.includes("\n") ? normalized.split("\n") : normalized.split("•");
+
+  return rawLines
+    .map((line) => line.trim())
+    .map((line) => line.replace(/^[-*•]\s*/, "").replace(/^\d+[\).\s-]+/, "").trim())
+    .filter(Boolean);
+};
+
 const parseDeliveryLookup = (rawCsv: string): DeliveryLookup => {
   const lookup: DeliveryLookup = {};
   const lines = rawCsv.split(/\r?\n/);
@@ -215,6 +227,11 @@ export default function ProductDetailPage() {
     return `Estimated delivery by ${formattedDate} (${deliveryDays} days).`;
   }, [deliveryLookup, deliveryLookupError, deliveryLookupLoading, normalizedPincode]);
 
+  const longDescriptionBullets = useMemo(
+    () => toLongDescriptionBullets(resolvedProduct?.description || ""),
+    [resolvedProduct?.description]
+  );
+
   if (!resolvedProduct && (loading || productsLoading)) {
     return null;
   }
@@ -326,7 +343,11 @@ export default function ProductDetailPage() {
 
         <section className="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-5 md:p-6">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Description</p>
-          <p className="text-sm text-gray-700 md:text-base">{resolvedProduct.description}</p>
+          <ul className="list-disc space-y-2 pl-5 text-sm text-gray-700 md:text-base">
+            {longDescriptionBullets.map((point, index) => (
+              <li key={`${point}-${index}`}>{point}</li>
+            ))}
+          </ul>
         </section>
 
         <section className="space-y-6">

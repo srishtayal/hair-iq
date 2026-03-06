@@ -24,7 +24,7 @@ const offers: HeroOffer[] = [
     copy: "Natural blend, luxury finish, and simple upkeep designed for modern men.",
     ctaLabel: "Shop Now",
     ctaHref: "/products",
-    image: "https://images.unsplash.com/photo-1517832606299-7ae9b720a186?auto=format&fit=crop&w=1800&q=80"
+    image: "/images/hero/3.png"
   },
   {
     id: "offer-2",
@@ -33,7 +33,7 @@ const offers: HeroOffer[] = [
     copy: "Invisible scalp finish and all-day hold for professional and active lifestyles.",
     ctaLabel: "Explore Collection",
     ctaHref: "/products",
-    image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=1800&q=80"
+    image: "/images/hero/2.png"
   },
   {
     id: "offer-3",
@@ -42,7 +42,7 @@ const offers: HeroOffer[] = [
     copy: "Complete transformation essentials in one premium bundle.",
     ctaLabel: "Claim Bundle",
     ctaHref: "/products",
-    image: "https://images.unsplash.com/photo-1480455624313-e29b44bbfde1?auto=format&fit=crop&w=1800&q=80"
+    image: "/images/hero/1.png"
   }
 ];
 
@@ -71,7 +71,7 @@ export default function HeroSection() {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0.4, scale: 0.98 }}
             transition={{ duration: 0.5 }}
-            className="relative aspect-[16/9] w-full"
+            className="relative aspect-[300/169] w-full"
           >
             <Image
               src={activeOffer.image}

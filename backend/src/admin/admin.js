@@ -94,6 +94,18 @@ const mountAdmin = async (app) => {
             'updatedAt',
           ],
           properties: {
+            shortDescription: {
+              type: 'textarea',
+              props: {
+                rows: 4,
+              },
+            },
+            longDescription: {
+              type: 'textarea',
+              props: {
+                rows: 14,
+              },
+            },
             variantsPreview: {
               type: 'textarea',
               isVisible: { list: false, filter: false, show: true, edit: false },
