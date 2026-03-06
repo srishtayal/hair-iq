@@ -18,6 +18,16 @@ const app = express();
 const uploadsDir = path.resolve(__dirname, '..', 'uploads');
 const cwdUploadsDir = path.resolve(process.cwd(), 'uploads');
 
+const trustProxySetting = process.env.TRUST_PROXY;
+if (trustProxySetting === 'true') {
+  app.set('trust proxy', true);
+} else if (trustProxySetting && !Number.isNaN(Number(trustProxySetting))) {
+  app.set('trust proxy', Number(trustProxySetting));
+} else {
+  // Railway runs behind a reverse proxy; trust one hop by default.
+  app.set('trust proxy', 1);
+}
+
 app.use(
   helmet({
     contentSecurityPolicy: {
