@@ -43,9 +43,31 @@ type OrderSummary = {
   id: string;
   createdAt: string;
   totalAmount: number;
+  shippingAmount: number;
+  discountAmount: number;
   orderStatus: string;
   paymentStatus: string;
   totalItems: number;
+  items: Array<{
+    id: string;
+    quantity: number;
+    priceAtPurchase: number;
+    lineTotal: number;
+    product: {
+      id: string;
+      name: string;
+      slug: string;
+      category: string;
+    } | null;
+    variant: {
+      id: string;
+      size: string | null;
+      color: string | null;
+      density: string | null;
+      price: number;
+      sku: string;
+    } | null;
+  }>;
 };
 
 const emptyAddress: AddressPayload = {
@@ -366,9 +388,44 @@ export default function ProfilePage() {
           </span>
         </div>
 
-        <div className="mt-4 flex items-end justify-between gap-2 border-t border-black/10 pt-3">
-          <p className="text-gray-600">{order.totalItems} items</p>
-          <p className="text-base font-semibold text-coal">{currency(order.totalAmount)}</p>
+        <div className="mt-4 space-y-2 border-t border-black/10 pt-3">
+          {order.items.length ? (
+            order.items.map((item) => (
+              <div key={item.id} className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-medium text-coal">{item.product?.name || "Product"}</p>
+                  <p className="text-xs text-gray-600">
+                    Qty {item.quantity}
+                    {item.variant?.sku ? ` | SKU ${item.variant.sku}` : ""}
+                  </p>
+                </div>
+                <p className="font-semibold text-coal">{currency(item.lineTotal || item.priceAtPurchase * item.quantity)}</p>
+              </div>
+            ))
+          ) : (
+            <p className="text-gray-600">No line items available.</p>
+          )}
+        </div>
+
+        <div className="mt-4 space-y-1 border-t border-black/10 pt-3">
+          <div className="flex items-center justify-between text-gray-600">
+            <p>Items</p>
+            <p>{currency(Math.max(0, order.totalAmount - order.shippingAmount + order.discountAmount))}</p>
+          </div>
+          <div className="flex items-center justify-between text-gray-600">
+            <p>Shipping</p>
+            <p>{currency(order.shippingAmount || 0)}</p>
+          </div>
+          {order.discountAmount > 0 ? (
+            <div className="flex items-center justify-between text-emerald-700">
+              <p>Discount</p>
+              <p>-{currency(order.discountAmount)}</p>
+            </div>
+          ) : null}
+          <div className="flex items-center justify-between text-base font-semibold text-coal">
+            <p>Total</p>
+            <p>{currency(order.totalAmount)}</p>
+          </div>
         </div>
       </motion.article>
     ));

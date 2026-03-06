@@ -1,4 +1,6 @@
 const crypto = require('crypto');
+const fs = require('fs/promises');
+const path = require('path');
 const Razorpay = require('razorpay');
 const sequelize = require('../config/db');
 const { Address, Cart, CartItem, Coupon, Order, OrderItem, Payment, Product, ProductVariant } = require('../models');
@@ -13,6 +15,99 @@ const toInt = (value, fallback = 0) => {
   const parsed = Number(value);
   if (Number.isNaN(parsed)) return fallback;
   return parsed;
+};
+
+const PINCODE_REGEX = /^\d{6}$/;
+let codServiceablePincodesCache = null;
+let codServiceablePincodesPromise = null;
+
+const sanitizeCsvCell = (value) => String(value || '').replace(/^"|"$/g, '').trim();
+
+const splitCsvLine = (line) => {
+  const cells = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+
+    if (char === '"') {
+      inQuotes = !inQuotes;
+      continue;
+    }
+
+    if (char === ',' && !inQuotes) {
+      cells.push(current);
+      current = '';
+      continue;
+    }
+
+    current += char;
+  }
+
+  cells.push(current);
+  return cells;
+};
+
+const resolvePincodeCsvPath = async () => {
+  const candidates = [
+    path.resolve(process.cwd(), '../frontend/public/B2C_Pincodes_List.csv'),
+    path.resolve(process.cwd(), 'frontend/public/B2C_Pincodes_List.csv'),
+    path.resolve(__dirname, '../../../frontend/public/B2C_Pincodes_List.csv'),
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      await fs.access(candidate);
+      return candidate;
+    } catch {
+      // Try next candidate
+    }
+  }
+
+  throw createError('Pincode CSV file not found for COD validation', 500);
+};
+
+const loadCodServiceablePincodes = async () => {
+  if (codServiceablePincodesCache) {
+    return codServiceablePincodesCache;
+  }
+
+  if (codServiceablePincodesPromise) {
+    return codServiceablePincodesPromise;
+  }
+
+  codServiceablePincodesPromise = (async () => {
+    const filePath = await resolvePincodeCsvPath();
+    const csvContent = await fs.readFile(filePath, 'utf8');
+    const lines = csvContent.split(/\r?\n/);
+    const serviceablePincodes = new Set();
+
+    for (let lineIndex = 1; lineIndex < lines.length; lineIndex += 1) {
+      const row = lines[lineIndex]?.trim();
+      if (!row) continue;
+
+      const columns = splitCsvLine(row);
+      if (columns.length < 4) continue;
+
+      const pincode = sanitizeCsvCell(columns[0]);
+      const codFlag = sanitizeCsvCell(columns[3]).toUpperCase();
+
+      if (!PINCODE_REGEX.test(pincode)) continue;
+      if (codFlag !== 'Y') continue;
+
+      serviceablePincodes.add(pincode);
+    }
+
+    codServiceablePincodesCache = serviceablePincodes;
+    codServiceablePincodesPromise = null;
+    return serviceablePincodes;
+  })().catch((error) => {
+    codServiceablePincodesPromise = null;
+    throw error;
+  });
+
+  return codServiceablePincodesPromise;
 };
 
 const isMagicCodEnabled = () => String(process.env.RAZORPAY_ENABLE_COD || '').toLowerCase() === 'true';
@@ -213,6 +308,23 @@ const applyMagicCheckoutPromotion = ({ code }) => {
   };
 };
 
+const resolveUnitPriceFromVariant = async ({ variant, transaction }) => {
+  const variantPrice = Number(variant?.price || 0);
+  if (variantPrice > 0) return variantPrice;
+
+  if (variant?.productId) {
+    const product = await Product.findByPk(variant.productId, {
+      attributes: ['id', 'price'],
+      transaction,
+    });
+
+    const productPrice = Number(product?.price || 0);
+    if (productPrice > 0) return productPrice;
+  }
+
+  throw createError(`Price not configured for SKU ${variant?.sku || variant?.id}`, 400);
+};
+
 const normalizeItems = async ({ userId, cartId, items, transaction }) => {
   if (cartId) {
     const cart = await Cart.findOne({ where: { id: cartId, userId }, transaction });
@@ -222,7 +334,6 @@ const normalizeItems = async ({ userId, cartId, items, transaction }) => {
 
     const cartItems = await CartItem.findAll({
       where: { cartId: cart.id },
-      include: [{ model: ProductVariant, as: 'productVariant', include: [{ model: Product, as: 'product', attributes: ['id', 'price'] }] }],
       transaction,
       lock: transaction.LOCK.UPDATE,
     });
@@ -231,11 +342,29 @@ const normalizeItems = async ({ userId, cartId, items, transaction }) => {
       throw createError('Cart is empty', 400);
     }
 
-    return cartItems.map((item) => ({
-      productVariantId: item.productVariantId,
-      quantity: item.quantity,
-      variant: item.productVariant,
-    }));
+    const normalized = [];
+
+    for (const item of cartItems) {
+      const variant = await ProductVariant.findByPk(item.productVariantId, {
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+
+      if (!variant) {
+        throw createError(`Variant not found: ${item.productVariantId}`, 404);
+      }
+
+      const unitPrice = await resolveUnitPriceFromVariant({ variant, transaction });
+
+      normalized.push({
+        productVariantId: item.productVariantId,
+        quantity: item.quantity,
+        variant,
+        unitPrice,
+      });
+    }
+
+    return normalized;
   }
 
   if (!Array.isArray(items) || !items.length) {
@@ -253,7 +382,6 @@ const normalizeItems = async ({ userId, cartId, items, transaction }) => {
     }
 
     const variant = await ProductVariant.findByPk(productVariantId, {
-      include: [{ model: Product, as: 'product', attributes: ['id', 'price'] }],
       transaction,
       lock: transaction.LOCK.UPDATE,
     });
@@ -262,7 +390,9 @@ const normalizeItems = async ({ userId, cartId, items, transaction }) => {
       throw createError(`Variant not found: ${productVariantId}`, 404);
     }
 
-    prepared.push({ productVariantId, quantity, variant });
+    const unitPrice = await resolveUnitPriceFromVariant({ variant, transaction });
+
+    prepared.push({ productVariantId, quantity, variant, unitPrice });
   }
 
   return prepared;
@@ -290,10 +420,49 @@ const computeDiscount = (coupon, itemsSubtotal) => {
   return Math.max(0, discount);
 };
 
-const resolveUnitPrice = (variant) => {
-  const productPrice = Number(variant?.product?.price || 0);
-  if (productPrice > 0) return productPrice;
-  return Number(variant?.price || 0);
+const validateCodCustomerDetails = (details = {}) => {
+  const requiredFields = ['fullName', 'phone', 'addressLine1', 'city', 'state', 'pincode'];
+  const missing = requiredFields.filter((field) => !String(details[field] || '').trim());
+
+  if (missing.length) {
+    throw createError(`Missing required fields: ${missing.join(', ')}`, 400);
+  }
+
+  const normalizedPhone = String(details.phone).replace(/\D/g, '');
+  if (normalizedPhone.length < 10) {
+    throw createError('phone must contain at least 10 digits', 400);
+  }
+
+  return {
+    fullName: String(details.fullName).trim(),
+    phone: String(details.phone).trim(),
+    addressLine1: String(details.addressLine1).trim(),
+    addressLine2: String(details.addressLine2 || '').trim() || null,
+    city: String(details.city).trim(),
+    state: String(details.state).trim(),
+    pincode: String(details.pincode).trim(),
+  };
+};
+
+const validateCodPincodeServiceability = async (pincode) => {
+  const normalizedPincode = String(pincode || '').replace(/\D/g, '').slice(0, 6);
+
+  if (!PINCODE_REGEX.test(normalizedPincode)) {
+    throw createError('Please enter a valid 6-digit pincode', 400);
+  }
+
+  const serviceablePincodes = await loadCodServiceablePincodes();
+  if (!serviceablePincodes.has(normalizedPincode)) {
+    throw createError('Coming soon to your location!', 400);
+  }
+};
+
+const normalizeCodStatusLabel = (value) => {
+  const normalized = String(value || '');
+  if (normalized.toLowerCase() === 'cod_pending') {
+    return 'COD_PENDING';
+  }
+  return normalized;
 };
 
 const createOrder = async ({ userId, cartId, items, addressId, couponCode }) => {
@@ -321,7 +490,7 @@ const createOrder = async ({ userId, cartId, items, addressId, couponCode }) => 
       }
     }
 
-    const itemsSubtotal = normalizedItems.reduce((sum, item) => sum + resolveUnitPrice(item.variant) * item.quantity, 0);
+    const itemsSubtotal = normalizedItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
 
     let coupon = null;
     if (couponCode) {
@@ -355,7 +524,7 @@ const createOrder = async ({ userId, cartId, items, addressId, couponCode }) => 
         orderId: order.id,
         productVariantId: item.productVariantId,
         quantity: item.quantity,
-        priceAtPurchase: resolveUnitPrice(item.variant),
+        priceAtPurchase: item.unitPrice,
       })),
       { transaction }
     );
@@ -394,6 +563,121 @@ const createOrder = async ({ userId, cartId, items, addressId, couponCode }) => 
   return result;
 };
 
+const createCodOrder = async ({ userId, items, customerDetails }) => {
+  if (!userId) {
+    throw createError('Unauthorized', 401);
+  }
+
+  const validatedCustomer = validateCodCustomerDetails(customerDetails);
+  await validateCodPincodeServiceability(validatedCustomer.pincode);
+  const shippingAmount = toInt(process.env.DEFAULT_SHIPPING_AMOUNT, 0);
+
+  return sequelize.transaction(async (transaction) => {
+    const normalizedItems = await normalizeItems({
+      userId,
+      items: (items || []).map((item) => ({
+        productVariantId: item.productVariantId,
+        quantity: item.quantity,
+      })),
+      transaction,
+    });
+
+    if (!normalizedItems.length) {
+      throw createError('items are required for COD order', 400);
+    }
+
+    for (const item of normalizedItems) {
+      if (!item.variant) {
+        throw createError('Invalid variant in COD items', 400);
+      }
+
+      if (item.quantity > item.variant.stockQuantity) {
+        throw createError(`Insufficient stock for SKU ${item.variant.sku}`, 400);
+      }
+    }
+
+    const address = await Address.create(
+      {
+        userId,
+        ...validatedCustomer,
+        isDefault: false,
+      },
+      { transaction }
+    );
+
+    const itemsSubtotal = normalizedItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+    const totalAmount = Math.max(0, itemsSubtotal + shippingAmount);
+
+    const order = await Order.create(
+      {
+        userId,
+        addressId: address.id,
+        totalAmount,
+        shippingAmount,
+        discountAmount: 0,
+        paymentStatus: 'COD_PENDING',
+        orderStatus: 'COD_PENDING',
+      },
+      { transaction }
+    );
+
+    await OrderItem.bulkCreate(
+      normalizedItems.map((item) => ({
+        orderId: order.id,
+        productVariantId: item.productVariantId,
+        quantity: item.quantity,
+        priceAtPurchase: item.unitPrice,
+      })),
+      { transaction }
+    );
+
+    for (const item of normalizedItems) {
+      const variant = item.variant;
+      await variant.update({ stockQuantity: variant.stockQuantity - item.quantity }, { transaction });
+    }
+
+    return {
+      orderId: order.id,
+      totalAmount,
+      paymentMethod: 'cod',
+      paymentStatus: 'COD_PENDING',
+      orderStatus: 'COD_PENDING',
+    };
+  });
+};
+
+const markCodOrderDeliveredAndPaid = async ({ orderId }) => {
+  if (!orderId) {
+    throw createError('orderId is required', 400);
+  }
+
+  return sequelize.transaction(async (transaction) => {
+    const order = await Order.findByPk(orderId, { transaction, lock: transaction.LOCK.UPDATE });
+
+    if (!order) {
+      throw createError('Order not found', 404);
+    }
+
+    if (!['COD_PENDING', 'cod_pending'].includes(String(order.orderStatus))) {
+      throw createError('Only COD_PENDING orders can be marked delivered/paid', 400);
+    }
+
+    await order.update(
+      {
+        orderStatus: 'delivered',
+        paymentStatus: 'paid',
+      },
+      { transaction }
+    );
+
+    return {
+      orderId: order.id,
+      paymentStatus: order.paymentStatus,
+      orderStatus: order.orderStatus,
+    };
+  });
+};
+
 const getOrdersByUser = async (userId) => {
   const orders = await Order.findAll({
     where: { userId },
@@ -425,16 +709,53 @@ const getOrdersByUser = async (userId) => {
     ],
   });
 
-  return orders.map((order) => ({
+  return orders.map((order) => {
+    const mappedItems = (order.items || []).map((item) => {
+      const resolvedUnitPrice = Number(item.priceAtPurchase || item.productVariant?.product?.price || item.productVariant?.price || 0);
+      const lineTotal = resolvedUnitPrice * item.quantity;
+
+      return {
+        id: item.id,
+        quantity: item.quantity,
+        priceAtPurchase: resolvedUnitPrice,
+        lineTotal,
+        variant: item.productVariant
+          ? {
+              id: item.productVariant.id,
+              size: item.productVariant.size,
+              color: item.productVariant.color,
+              density: item.productVariant.density,
+              price: resolvedUnitPrice,
+              sku: item.productVariant.sku,
+            }
+          : null,
+        product: item.productVariant?.product
+          ? {
+              id: item.productVariant.product.id,
+              name: item.productVariant.product.name,
+              slug: item.productVariant.product.slug,
+              category: item.productVariant.product.category,
+            }
+          : null,
+      };
+    });
+
+    const computedItemsTotal = mappedItems.reduce((sum, item) => sum + item.lineTotal, 0);
+    const resolvedTotalAmount =
+      Number(order.totalAmount || 0) > 0
+        ? Number(order.totalAmount)
+        : Math.max(0, computedItemsTotal + Number(order.shippingAmount || 0) - Number(order.discountAmount || 0));
+
+    return {
     id: order.id,
     createdAt: order.createdAt,
-    totalAmount: order.totalAmount,
+    totalAmount: resolvedTotalAmount,
     shippingAmount: order.shippingAmount,
     discountAmount: order.discountAmount,
-    paymentStatus: order.paymentStatus,
-    orderStatus: order.orderStatus,
+    paymentStatus: normalizeCodStatusLabel(order.paymentStatus),
+    orderStatus: normalizeCodStatusLabel(order.orderStatus),
     trackingId: order.trackingId,
-    totalItems: (order.items || []).reduce((sum, item) => sum + item.quantity, 0),
+    totalItems: mappedItems.reduce((sum, item) => sum + item.quantity, 0),
     address: order.address
       ? {
           id: order.address.id,
@@ -448,30 +769,9 @@ const getOrdersByUser = async (userId) => {
           isDefault: order.address.isDefault,
         }
       : null,
-    items: (order.items || []).map((item) => ({
-      id: item.id,
-      quantity: item.quantity,
-      priceAtPurchase: item.priceAtPurchase,
-      variant: item.productVariant
-        ? {
-            id: item.productVariant.id,
-            size: item.productVariant.size,
-            color: item.productVariant.color,
-            density: item.productVariant.density,
-            price: item.priceAtPurchase,
-            sku: item.productVariant.sku,
-          }
-        : null,
-      product: item.productVariant?.product
-        ? {
-            id: item.productVariant.product.id,
-            name: item.productVariant.product.name,
-            slug: item.productVariant.product.slug,
-            category: item.productVariant.product.category,
-          }
-        : null,
-    })),
-  }));
+    items: mappedItems,
+  };
+  });
 };
 
 const verifyRazorpayWebhookSignature = ({ rawBody, signature }) => {
@@ -515,7 +815,6 @@ const processPaymentCaptured = async (payload) => {
   return sequelize.transaction(async (transaction) => {
     const payment = await Payment.findOne({
       where: { razorpayOrderId },
-      include: [{ model: Order, as: 'order', include: [{ model: OrderItem, as: 'items' }] }],
       transaction,
       lock: transaction.LOCK.UPDATE,
     });
@@ -528,9 +827,22 @@ const processPaymentCaptured = async (payload) => {
       return { alreadyProcessed: true };
     }
 
-    const order = payment.order;
+    const order = await Order.findByPk(payment.orderId, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
 
-    for (const item of order.items) {
+    if (!order) {
+      throw createError('Order not found for payment', 404);
+    }
+
+    const orderItems = await OrderItem.findAll({
+      where: { orderId: order.id },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    for (const item of orderItems) {
       const variant = await ProductVariant.findByPk(item.productVariantId, {
         transaction,
         lock: transaction.LOCK.UPDATE,
@@ -570,11 +882,13 @@ const processPaymentCaptured = async (payload) => {
 
 module.exports = {
   applyMagicCheckoutPromotion,
+  createCodOrder,
   createPaymentOrder,
   createOrder,
   getMagicCheckoutPromotions,
   getMagicCheckoutShippingInfo,
   getOrdersByUser,
+  markCodOrderDeliveredAndPaid,
   verifyRazorpayPaymentSignature,
   verifyRazorpayWebhookSignature,
   processPaymentCaptured,

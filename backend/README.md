@@ -233,6 +233,39 @@ If COD is enabled (`RAZORPAY_ENABLE_COD=true`), send Magic Checkout line items:
 }
 ```
 
+### COD order (authenticated)
+
+`POST /orders/cod`
+
+```json
+{
+  "items": [
+    { "productVariantId": "<variant-uuid>", "quantity": 1 }
+  ],
+  "customerDetails": {
+    "fullName": "Rahul Sharma",
+    "phone": "+919999999999",
+    "addressLine1": "221B Baker Street",
+    "addressLine2": "Near Metro",
+    "city": "Bengaluru",
+    "state": "Karnataka",
+    "pincode": "560001"
+  }
+}
+```
+
+Behavior:
+- Creates order with `orderStatus=COD_PENDING`, `paymentStatus=COD_PENDING`
+- No Razorpay payment is created for COD
+
+### Mark COD order delivered + paid (admin)
+
+`PATCH /orders/:id/cod-delivered`
+
+Behavior:
+- Allowed only for admin user
+- Converts `COD_PENDING` order to `orderStatus=delivered`, `paymentStatus=paid`
+
 ### Magic Checkout support APIs (public)
 
 `POST /magic-checkout/shipping-info`

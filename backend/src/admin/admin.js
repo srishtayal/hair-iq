@@ -1,6 +1,6 @@
 const path = require('path');
 const fs = require('fs');
-const { User, Product, ProductVariant, ProductMedia, Order, OrderItem, Coupon } = require('../models');
+const { User, Product, ProductVariant, ProductMedia, Order, OrderItem, Coupon, Payment, Address } = require('../models');
 
 const buildProductShowPreview = () => async (response) => {
   if (!response.record || !response.record.params?.id) return response;
@@ -129,10 +129,10 @@ const mountAdmin = async (app) => {
         options: {
           navigation: { name: 'Catalog', icon: 'Product' },
           listProperties: ['id', 'productId', 'sku', 'stockQuantity', 'size', 'color', 'density'],
-          editProperties: ['productId', 'sku', 'stockQuantity', 'size', 'color', 'density'],
+          editProperties: ['productId', 'sku', 'price', 'stockQuantity', 'size', 'color', 'density'],
           properties: {
             productId: {
-              reference: 'products',
+              reference: 'Product',
             },
           },
         },
@@ -145,7 +145,7 @@ const mountAdmin = async (app) => {
           editProperties: ['productId', 'type', 'sortOrder', 'uploadFile'],
           properties: {
             productId: {
-              reference: 'products',
+              reference: 'Product',
             },
             uploadFile: {
               isVisible: { list: false, filter: false, show: false, edit: true },
@@ -182,6 +182,7 @@ const mountAdmin = async (app) => {
         options: {
           navigation: { name: 'Orders', icon: 'PurchaseTag' },
           listProperties: ['id', 'userId', 'totalAmount', 'paymentStatus', 'orderStatus', 'trackingId', 'createdAt'],
+          editProperties: ['userId', 'addressId', 'paymentStatus', 'orderStatus', 'trackingId'],
           showProperties: [
             'id',
             'userId',
@@ -195,6 +196,10 @@ const mountAdmin = async (app) => {
             'createdAt',
             'updatedAt',
           ],
+          properties: {
+            userId: { reference: 'User' },
+            addressId: { reference: 'Address' },
+          },
         },
       },
       {
@@ -202,9 +207,21 @@ const mountAdmin = async (app) => {
         options: {
           navigation: { name: 'Orders', icon: 'PurchaseTag' },
           listProperties: ['id', 'orderId', 'productVariantId', 'quantity', 'priceAtPurchase'],
+          editProperties: ['orderId', 'productVariantId', 'quantity', 'priceAtPurchase'],
           properties: {
-            orderId: { reference: 'orders' },
-            productVariantId: { reference: 'product_variants' },
+            orderId: { reference: 'Order' },
+            productVariantId: { reference: 'ProductVariant' },
+          },
+        },
+      },
+      {
+        resource: Payment,
+        options: {
+          navigation: { name: 'Orders', icon: 'PurchaseTag' },
+          listProperties: ['id', 'orderId', 'gateway', 'status', 'amount', 'paymentId', 'createdAt'],
+          editProperties: ['orderId', 'gateway', 'status', 'paymentId'],
+          properties: {
+            orderId: { reference: 'Order' },
           },
         },
       },

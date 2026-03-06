@@ -6,6 +6,7 @@ import SectionHeader from "@/components/common/section-header";
 import OpenDeliveryPolicy from "@/components/product/open-delivery-policy";
 import ProductCard from "@/components/product/product-card";
 import ReviewCard from "@/components/review/review-card";
+import VideoModal from "@/components/video/video-modal";
 import { useStore } from "@/context/store-context";
 import { reviews } from "@/data/reviews";
 import { fetchProductBySlug } from "@/lib/product-api";
@@ -114,6 +115,7 @@ export default function ProductDetailPage() {
   const [deliveryLookup, setDeliveryLookup] = useState<DeliveryLookup>({});
   const [deliveryLookupLoading, setDeliveryLookupLoading] = useState(true);
   const [deliveryLookupError, setDeliveryLookupError] = useState("");
+  const [isOpenDeliveryVideoOpen, setIsOpenDeliveryVideoOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -332,6 +334,17 @@ export default function ProductDetailPage() {
                   className="w-full rounded-full border border-black/20 bg-white px-4 py-2.5 text-sm text-coal outline-none transition sm:max-w-[220px] focus:border-coal"
                 />
                 <p className="text-sm font-medium text-coal">{deliveryEstimateMessage}</p>
+                <div className="flex items-center gap-2 text-xs text-gray-700 md:text-sm">
+                  <p>Worried about quality? We offer Open Delivery.</p>
+                  <button
+                    type="button"
+                    onClick={() => setIsOpenDeliveryVideoOpen(true)}
+                    className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-black/25 text-[11px] font-semibold text-coal"
+                    aria-label="Watch open delivery video"
+                  >
+                    ?
+                  </button>
+                </div>
               </div>
             </section>
             <div className="flex flex-wrap gap-3">
@@ -382,6 +395,13 @@ export default function ProductDetailPage() {
 
         <OpenDeliveryPolicy />
       </div>
+
+      <VideoModal
+        open={isOpenDeliveryVideoOpen}
+        onClose={() => setIsOpenDeliveryVideoOpen(false)}
+        embedUrl="/videos/open-delivery.mp4"
+        title="Open Delivery Process"
+      />
     </div>
   );
 }

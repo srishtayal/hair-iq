@@ -39,6 +39,20 @@ const createPaymentOrder = async (req, res, next) => {
   }
 };
 
+const createCodOrder = async (req, res, next) => {
+  try {
+    const data = await orderService.createCodOrder({
+      userId: req.user.id,
+      items: req.body.items,
+      customerDetails: req.body.customerDetails,
+    });
+
+    return res.status(201).json({ success: true, data });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 const verifyPaymentSignature = async (req, res, next) => {
   try {
     const {
@@ -132,10 +146,24 @@ const magicCheckoutApplyPromotions = async (req, res, next) => {
   }
 };
 
+const markCodOrderDeliveredAndPaid = async (req, res, next) => {
+  try {
+    const data = await orderService.markCodOrderDeliveredAndPaid({
+      orderId: req.params.id,
+    });
+
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 module.exports = {
   magicCheckoutApplyPromotions,
   magicCheckoutGetPromotions,
   magicCheckoutShippingInfo,
+  markCodOrderDeliveredAndPaid,
+  createCodOrder,
   createPaymentOrder,
   createOrder,
   getOrders,
