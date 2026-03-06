@@ -5,6 +5,7 @@ import SectionHeader from "@/components/common/section-header";
 import OpenDeliveryPolicy from "@/components/product/open-delivery-policy";
 import ProductCard from "@/components/product/product-card";
 import { useStore } from "@/context/store-context";
+import { currency } from "@/lib/utils";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -33,13 +34,49 @@ export default function ProductsPage() {
     return () => window.removeEventListener("mousedown", onClickOutside);
   }, []);
 
-  const isInStock = (productId: string) => {
-    const product = products.find((item) => item.id === productId);
-    return product?.variants.some((variant) => variant.stock > 0) ?? false;
+  const getProductPrice = (product: (typeof products)[number]) => {
+    const variantPrices = product.variants.map((variant) => variant.price).filter((value) => value > 0);
+    const lowestVariantPrice = variantPrices.length ? Math.min(...variantPrices) : 0;
+    return product.basePrice > 0 ? product.basePrice : lowestVariantPrice;
   };
 
-  const outOfStockCount = useMemo(() => products.filter((product) => !isInStock(product.id)).length, [products]);
-  const inStockTotal = useMemo(() => products.filter((product) => isInStock(product.id)).length, [products]);
+  const productStockMap = useMemo(() => {
+    const map = new Map<string, boolean>();
+    products.forEach((product) => {
+      map.set(product.id, product.variants.some((variant) => variant.stock > 0));
+    });
+    return map;
+  }, [products]);
+
+  const outOfStockCount = useMemo(
+    () => products.filter((product) => !productStockMap.get(product.id)).length,
+    [products, productStockMap]
+  );
+  const inStockTotal = useMemo(
+    () => products.filter((product) => productStockMap.get(product.id)).length,
+    [products, productStockMap]
+  );
+
+  const priceBands = useMemo(() => {
+    const validPrices = products.map(getProductPrice).filter((value) => value > 0);
+    if (!validPrices.length) {
+      return { lowUpper: 80, midUpper: 130 };
+    }
+
+    const minPrice = Math.min(...validPrices);
+    const maxPrice = Math.max(...validPrices);
+    if (minPrice === maxPrice) {
+      return { lowUpper: maxPrice, midUpper: maxPrice };
+    }
+
+    const step = (maxPrice - minPrice) / 3;
+    const lowUpper = minPrice + step;
+    const midUpper = minPrice + step * 2;
+    return { lowUpper, midUpper };
+  }, [products]);
+
+  const roundedLowUpper = Math.max(0, Math.round(priceBands.lowUpper));
+  const roundedMidUpper = Math.max(roundedLowUpper, Math.round(priceBands.midUpper));
 
   const toggleAvailability = (value: AvailabilityOption) => {
     setSelectedAvailability((prev) => (prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value]));
@@ -52,28 +89,34 @@ export default function ProductsPage() {
   const filteredProducts = useMemo(() => {
     const availabilityFiltered = products.filter((product) => {
       if (!selectedAvailability.length) return true;
-      const stockStatus: AvailabilityOption = isInStock(product.id) ? "in-stock" : "out-of-stock";
+      const stockStatus: AvailabilityOption = productStockMap.get(product.id) ? "in-stock" : "out-of-stock";
       return selectedAvailability.includes(stockStatus);
     });
 
     const priceFiltered = availabilityFiltered.filter((product) => {
       if (!selectedPrice.length) return true;
+      const effectivePrice = getProductPrice(product);
 
       return selectedPrice.some((priceRange) => {
-        if (priceRange === "under-80") return product.basePrice < 80;
-        if (priceRange === "80-130") return product.basePrice >= 80 && product.basePrice <= 130;
-        return product.basePrice > 130;
+        if (priceRange === "under-80") return effectivePrice <= priceBands.lowUpper;
+        if (priceRange === "80-130") return effectivePrice > priceBands.lowUpper && effectivePrice <= priceBands.midUpper;
+        return effectivePrice > priceBands.midUpper;
       });
     });
 
     return [...priceFiltered].sort((a, b) => {
-      if (selectedSort === "price-asc") return a.basePrice - b.basePrice;
-      if (selectedSort === "price-desc") return b.basePrice - a.basePrice;
+      const priceA = getProductPrice(a);
+      const priceB = getProductPrice(b);
+
+      if (selectedSort === "price-asc") return priceA - priceB;
+      if (selectedSort === "price-desc") return priceB - priceA;
       if (selectedSort === "best-selling") return b.reviewCount - a.reviewCount;
       if (selectedSort === "rating") return b.rating - a.rating;
-      return Number(b.featured ?? false) - Number(a.featured ?? false);
+      const featuredDiff = Number(b.featured ?? false) - Number(a.featured ?? false);
+      if (featuredDiff !== 0) return featuredDiff;
+      return a.name.localeCompare(b.name);
     });
-  }, [products, selectedSort, selectedAvailability, selectedPrice]);
+  }, [priceBands.lowUpper, priceBands.midUpper, productStockMap, products, selectedSort, selectedAvailability, selectedPrice]);
 
   return (
     <div className="pt-12 space-y-8">
@@ -175,7 +218,7 @@ export default function ProductsPage() {
                     onChange={() => togglePrice("under-80")}
                     className="h-4 w-4 rounded border-black/30"
                   />
-                  Under $80
+                  Up to {currency(roundedLowUpper)}
                 </label>
                 <label className="flex cursor-pointer items-center gap-3 text-base text-coal">
                   <input
@@ -184,7 +227,7 @@ export default function ProductsPage() {
                     onChange={() => togglePrice("80-130")}
                     className="h-4 w-4 rounded border-black/30"
                   />
-                  $80 - $130
+                  {currency(roundedLowUpper + 1)} - {currency(roundedMidUpper)}
                 </label>
                 <label className="flex cursor-pointer items-center gap-3 text-base text-coal">
                   <input
@@ -193,7 +236,7 @@ export default function ProductsPage() {
                     onChange={() => togglePrice("above-130")}
                     className="h-4 w-4 rounded border-black/30"
                   />
-                  Above $130
+                  Above {currency(roundedMidUpper)}
                 </label>
               </div>
             </div>
