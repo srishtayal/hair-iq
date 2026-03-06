@@ -34,7 +34,7 @@ type StoreContextType = {
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
-const shippingFee = 12;
+const shippingFee = 0;
 const CART_KEY = "hairiq_cart_items";
 const WISHLIST_KEY = "hairiq_wishlist_items";
 const SESSION_KEY = "hairiq_session_started_at";

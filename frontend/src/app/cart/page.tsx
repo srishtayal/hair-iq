@@ -77,7 +77,7 @@ const loadRazorpayScript = async () => {
 
 export default function CartPage() {
   const { cartItems, cartSubtotal, isAuthenticated, goToAuth, user, clearCart } = useStore();
-  const subtotal = cartItems.length ? cartSubtotal - 12 : 0;
+  const subtotal = cartSubtotal;
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleCheckout = async () => {
@@ -182,7 +182,10 @@ export default function CartPage() {
               </div>
               <div className="flex justify-between text-gray-600">
                 <span>Shipping</span>
-                <span>{currency(12)}</span>
+                <span className="flex items-center gap-2">
+                  <span className="text-gray-500 line-through">{currency(200)}</span>
+                  <span className="font-semibold text-emerald-600">FREE</span>
+                </span>
               </div>
               <div className="mt-3 flex justify-between border-t border-white/10 pt-3 text-coal">
                 <span>Total</span>

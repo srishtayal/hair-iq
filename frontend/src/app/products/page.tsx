@@ -200,7 +200,7 @@ export default function ProductsPage() {
           ) : null}
         </div>
 
-        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-2 gap-4 sm:gap-5 xl:grid-cols-3">
           {productsLoading
             ? Array.from({ length: 6 }).map((_, idx) => <Skeleton key={idx} className="h-[360px]" />)
             : filteredProducts.map((product) => <ProductCard key={product.id} product={product} />)}

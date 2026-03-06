@@ -13,7 +13,7 @@ export default function FeaturedProducts() {
   return (
     <section className="space-y-8">
       <SectionHeader eyebrow="Featured" title="Luxury picks from our best-selling range" />
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-3">
         {productsLoading
           ? Array.from({ length: 3 }).map((_, idx) => <Skeleton key={idx} className="h-[360px]" />)
           : displayItems.map((product) => <ProductCard key={product.id} product={product} />)}

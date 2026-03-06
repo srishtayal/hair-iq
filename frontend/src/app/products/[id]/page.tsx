@@ -254,7 +254,7 @@ export default function ProductDetailPage() {
       <div className="space-y-12">
         <div className="grid gap-8 lg:grid-cols-2">
           <div className="space-y-4">
-            <div className="relative aspect-square overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+            <div className="relative aspect-[9/10] overflow-hidden rounded-2xl border border-white/10 bg-white/5">
               <Image
                 src={resolvedProduct.images[selectedImage]}
                 alt={resolvedProduct.name}
@@ -268,7 +268,7 @@ export default function ProductDetailPage() {
                 <button
                   key={image}
                   onClick={() => setSelectedImage(idx)}
-                  className={`relative aspect-square overflow-hidden rounded-xl border ${
+                  className={`relative aspect-[9/10] overflow-hidden rounded-xl border ${
                     selectedImage === idx ? "border-champagne" : "border-white/10"
                   }`}
                 >
@@ -363,7 +363,7 @@ export default function ProductDetailPage() {
 
         <section className="space-y-6">
           <SectionHeader eyebrow="More To Explore" title="Similar products" />
-          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-2 gap-4 sm:gap-5 xl:grid-cols-3">
             {similarProducts.map((similarProduct) => (
               <ProductCard key={similarProduct.id} product={similarProduct} />
             ))}

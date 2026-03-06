@@ -52,7 +52,7 @@ export default function WishlistPage() {
         <div className="grid gap-4 md:grid-cols-2">
           {wishlistProducts.map((product) => (
             <article key={product.id} className="flex gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 shadow-soft">
-              <div className="relative h-24 w-24 overflow-hidden rounded-xl">
+              <div className="relative aspect-[9/10] w-24 overflow-hidden rounded-xl">
                 <Image src={product.images[0]} alt={product.name} fill sizes="96px" className="object-cover" />
               </div>
               <div className="flex flex-1 items-center justify-between gap-3">

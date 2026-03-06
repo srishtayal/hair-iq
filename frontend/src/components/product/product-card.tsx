@@ -22,12 +22,12 @@ export default function ProductCard({ product }: { product: Product }) {
 
   return (
     <motion.article whileHover={{ y: -6 }} className="group overflow-hidden rounded-2xl border border-graphite/10 bg-white/5">
-      <Link href={`/products/${product.slug}`} className="relative block aspect-[4/5]">
+      <Link href={`/products/${product.slug}`} className="relative block aspect-[9/10]">
         <Image
           src={product.images[0]}
           alt={product.name}
           fill
-          sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
+          sizes="(max-width: 640px) 50vw, (max-width: 1280px) 50vw, 33vw"
           className="object-cover transition duration-500 group-hover:scale-105"
         />
         <button

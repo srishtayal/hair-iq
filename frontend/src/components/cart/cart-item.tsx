@@ -17,7 +17,7 @@ export default function CartItem({ item }: { item: CartItemType }) {
 
   return (
     <article className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 sm:flex-row">
-      <div className="relative h-24 w-full overflow-hidden rounded-xl sm:w-28">
+      <div className="relative aspect-[9/10] w-full max-w-[180px] overflow-hidden rounded-xl sm:w-28">
         <Image src={product.images[0]} alt={product.name} fill sizes="(max-width: 640px) 100vw, 112px" className="object-cover" />
       </div>
       <div className="flex flex-1 items-start justify-between gap-4">
