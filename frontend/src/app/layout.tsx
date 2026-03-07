@@ -1,5 +1,6 @@
 import Footer from "@/components/layout/footer";
 import Navbar from "@/components/layout/navbar";
+import GoogleAnalytics from "@/components/analytics/google-analytics";
 import { StoreProvider } from "@/context/store-context";
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
@@ -28,9 +29,12 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const gaMeasurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+
   return (
     <html lang="en" className={`${bodyFont.variable} ${displayFont.variable}`}>
       <body>
+        {gaMeasurementId ? <GoogleAnalytics measurementId={gaMeasurementId} /> : null}
         <StoreProvider>
           <Navbar />
           <main className="pb-16">{children}</main>
