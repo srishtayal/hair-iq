@@ -5,7 +5,7 @@ import { useStore } from "@/context/store-context";
 import { currency } from "@/lib/utils";
 import { Product } from "@/types";
 import { motion } from "framer-motion";
-import { Heart, Minus, Plus, ShoppingBag } from "lucide-react";
+import { Heart, ShoppingBag } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
@@ -16,13 +16,10 @@ type ProductCardProps = {
 };
 
 export default function ProductCard({ product, mode = "default" }: ProductCardProps) {
-  const { addToCart, toggleWishlist, isWishlisted, getCartQuantity, setCartQuantity } = useStore();
+  const { addToCart, toggleWishlist, isWishlisted, getCartQuantity } = useStore();
   const [showVariantPicker, setShowVariantPicker] = useState(false);
   const defaultVariantId = product.variants[0]?.id;
   const currentPrice = product.basePrice > 0 ? product.basePrice : product.variants[0]?.price ?? 0;
-  const highestVariantPrice = product.variants.length ? Math.max(...product.variants.map((variant) => variant.price)) : currentPrice;
-  const originalPrice = highestVariantPrice > currentPrice ? highestVariantPrice : Math.ceil(currentPrice * 1.12);
-  const discountPercent = originalPrice > currentPrice ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100) : 0;
   const defaultVariantQty = defaultVariantId ? getCartQuantity(product.id, defaultVariantId) : 0;
 
   const handleVariantSelect = (variantId: string) => {
@@ -33,8 +30,8 @@ export default function ProductCard({ product, mode = "default" }: ProductCardPr
 
   if (mode === "listing") {
     return (
-      <motion.article whileHover={{ y: -4 }} className="group overflow-hidden rounded-[26px] bg-[#efefef] p-3 sm:p-4">
-        <Link href={`/products/${product.slug}`} className="relative block aspect-[9/10] overflow-hidden rounded-[24px] bg-white">
+      <motion.article whileHover={{ y: -3 }} className="group overflow-hidden rounded-2xl border border-black/10 bg-white p-2.5 sm:p-3">
+        <Link href={`/products/${product.slug}`} className="relative block aspect-[9/10] overflow-hidden rounded-xl bg-[#f3f3f3]">
           <Image
             src={product.images[0]}
             alt={product.name}
@@ -43,61 +40,69 @@ export default function ProductCard({ product, mode = "default" }: ProductCardPr
             className="object-cover transition duration-500 group-hover:scale-105"
           />
           {product.featured ? (
-            <span className="absolute left-0 top-0 rounded-br-xl bg-[#0F1F5A] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-white sm:text-xs">
+            <span className="absolute left-0 top-0 rounded-br-lg bg-coal px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white sm:text-xs">
               Best Seller
-            </span>
-          ) : null}
-          {discountPercent > 0 ? (
-            <span className="absolute right-2 top-2 rounded-full bg-emerald-600 px-2.5 py-1 text-[10px] font-semibold tracking-[0.04em] text-white sm:text-xs">
-              {discountPercent}% OFF
             </span>
           ) : null}
         </Link>
 
-        <div className="space-y-2 px-1 pt-3">
+        <div className="space-y-2.5 px-1 pt-3">
           <Link
             href={`/products/${product.slug}`}
-            className="block font-display text-xl font-bold uppercase leading-[1.12] tracking-[0.02em] text-coal sm:text-2xl"
+            className="line-clamp-2 block text-base font-semibold leading-snug text-coal sm:text-lg"
           >
             {product.name}
           </Link>
 
           <div className="flex items-center gap-2">
             <RatingStars rating={product.rating} />
-            <span className="text-sm text-gray-700">({product.reviewCount})</span>
+            <span className="text-xs text-gray-600 sm:text-sm">({product.reviewCount})</span>
           </div>
 
-          <div className="flex items-baseline gap-2">
-            <p className="text-xl text-gray-500 line-through sm:text-2xl">{currency(originalPrice)}</p>
-            <p className="text-2xl font-semibold text-coal sm:text-[2.05rem]">{currency(currentPrice)}</p>
+          <div>
+            {/* <p className="text-xs uppercase tracking-[0.18em] text-gray-500">Price</p> */}
+            <p className="text-xl font-semibold leading-none text-coal sm:text-xl">{currency(currentPrice)}</p>
           </div>
 
-          {defaultVariantId && defaultVariantQty > 0 ? (
-            <div className="mt-2 flex items-center justify-between rounded-full border border-black/20 bg-white px-3 py-2">
-              <button
-                onClick={() => setCartQuantity(product.id, defaultVariantId, defaultVariantQty - 1)}
-                className="rounded-full p-1 text-coal transition hover:bg-gray-100"
-                aria-label="Decrease quantity"
+          {!showVariantPicker ? (
+            <button
+              onClick={() => setShowVariantPicker(true)}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-coal px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-black"
+            >
+              <ShoppingBag className="h-4 w-4" />
+              Quick Add
+            </button>
+          ) : (
+            <div className="space-y-2">
+              <select
+                defaultValue=""
+                onChange={(event) => handleVariantSelect(event.target.value)}
+                className="w-full rounded-full border border-black/20 bg-white px-4 py-2.5 text-sm text-coal outline-none"
               >
-                <Minus className="h-4 w-4" />
-              </button>
-              <span className="text-sm font-semibold text-coal">{defaultVariantQty}</span>
+                <option value="" disabled>
+                  Select a variant
+                </option>
+                {product.variants.map((variant) => (
+                  <option key={variant.id} value={variant.id} disabled={variant.stock <= 0}>
+                    {variant.label}
+                    {variant.stock <= 0 ? " (Out of stock)" : ""}
+                  </option>
+                ))}
+              </select>
               <button
-                onClick={() => setCartQuantity(product.id, defaultVariantId, defaultVariantQty + 1)}
-                className="rounded-full p-1 text-coal transition hover:bg-gray-100"
-                aria-label="Increase quantity"
+                onClick={() => setShowVariantPicker(false)}
+                className="w-full text-xs font-medium text-gray-600 underline underline-offset-4"
               >
-                <Plus className="h-4 w-4" />
+                Cancel
               </button>
             </div>
-          ) : (
-            <button
-              onClick={() => addToCart(product.id, defaultVariantId)}
-              className="mt-2 inline-flex w-full items-center justify-center rounded-full bg-black px-4 py-3 text-base font-semibold text-white transition hover:bg-black/90"
-            >
-              Add To Cart
-            </button>
           )}
+
+          {defaultVariantId && defaultVariantQty > 0 ? (
+            <p className="text-center text-xs font-medium text-emerald-700">
+              In cart: {defaultVariantQty}
+            </p>
+          ) : null}
         </div>
       </motion.article>
     );

@@ -6,7 +6,9 @@ import SectionHeader from "@/components/common/section-header";
 import { useStore } from "@/context/store-context";
 import { apiRequest } from "@/lib/api";
 import { currency } from "@/lib/utils";
-import { useEffect, useMemo, useState } from "react";
+import { BadgeCheck, ShieldCheck, Truck } from "lucide-react";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 type RazorpayOrderResponse = {
   success: true;
@@ -95,6 +97,18 @@ type CodCustomerDetails = {
   pincode: string;
 };
 
+type SavedAddress = {
+  id: string;
+  fullName: string;
+  phone: string;
+  addressLine1: string;
+  addressLine2: string | null;
+  city: string;
+  state: string;
+  pincode: string;
+  isDefault: boolean;
+};
+
 type OrderPlacedPopup = {
   title: string;
   message: string;
@@ -104,6 +118,7 @@ type OrderPlacedPopup = {
 
 const PINCODE_REGEX = /^\d{6}$/;
 const LOCAL_ORDER_HISTORY_KEY = "hairiq_local_orders";
+const MANUAL_ADDRESS_ID = "__manual_address__";
 
 const sanitizeCsvCell = (value: string) => value.replace(/^"|"$/g, "").trim();
 
@@ -156,6 +171,16 @@ const parseCodPincodes = (rawCsv: string) => {
   return codPincodes;
 };
 
+const toCodCustomerDetails = (address: SavedAddress): CodCustomerDetails => ({
+  fullName: address.fullName || "",
+  phone: address.phone || "",
+  addressLine1: address.addressLine1 || "",
+  addressLine2: address.addressLine2 || "",
+  city: address.city || "",
+  state: address.state || "",
+  pincode: address.pincode || "",
+});
+
 const loadRazorpayScript = async () => {
   if (window.Razorpay) return true;
 
@@ -189,6 +214,10 @@ export default function CartPage() {
   const [codPincodes, setCodPincodes] = useState<Set<string> | null>(null);
   const [codPincodeLoading, setCodPincodeLoading] = useState(false);
   const [codPincodeError, setCodPincodeError] = useState("");
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string>(MANUAL_ADDRESS_ID);
+  const [addressesLoading, setAddressesLoading] = useState(false);
+  const [addressesError, setAddressesError] = useState("");
 
   useEffect(() => {
     setCodDetails((prev) => ({
@@ -232,9 +261,91 @@ export default function CartPage() {
     };
   }, []);
 
+  const getServerToken = useCallback(async () => {
+    const existing = localStorage.getItem("hairiq_server_token");
+    if (existing) {
+      return existing;
+    }
+
+    if (!user) {
+      throw new Error("Please login to continue checkout.");
+    }
+
+    const firebaseIdToken = await user.getIdToken(true);
+    const authResponse = await apiRequest<VerifyFirebaseResponse>("/auth/verify-firebase", {
+      method: "POST",
+      body: JSON.stringify({ idToken: firebaseIdToken }),
+    });
+
+    localStorage.setItem("hairiq_server_token", authResponse.data.token);
+    return authResponse.data.token;
+  }, [user]);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadSavedAddresses = async () => {
+      if (!isAuthenticated || !user) {
+        setSavedAddresses([]);
+        setSelectedAddressId(MANUAL_ADDRESS_ID);
+        return;
+      }
+
+      try {
+        setAddressesLoading(true);
+        setAddressesError("");
+        const token = await getServerToken();
+        const response = await apiRequest<{ success: true; data: SavedAddress[] }>("/addresses", { method: "GET" }, token);
+        if (!active) return;
+
+        const addresses = response.data;
+        setSavedAddresses(addresses);
+
+        if (!addresses.length) {
+          setSelectedAddressId(MANUAL_ADDRESS_ID);
+          return;
+        }
+
+        const preferredAddress = addresses.find((address) => address.isDefault) ?? addresses[0];
+        setSelectedAddressId((previous) => {
+          if (previous !== MANUAL_ADDRESS_ID && addresses.some((address) => address.id === previous)) {
+            return previous;
+          }
+          return preferredAddress.id;
+        });
+      } catch (error) {
+        if (!active) return;
+        setAddressesError(error instanceof Error ? error.message : "Unable to load saved addresses.");
+      } finally {
+        if (active) {
+          setAddressesLoading(false);
+        }
+      }
+    };
+
+    void loadSavedAddresses();
+
+    return () => {
+      active = false;
+    };
+  }, [getServerToken, isAuthenticated, user]);
+
+  const selectedSavedAddress = useMemo(
+    () => savedAddresses.find((address) => address.id === selectedAddressId) ?? null,
+    [savedAddresses, selectedAddressId]
+  );
+
+  const effectiveCodDetails = useMemo(() => {
+    if (selectedSavedAddress) {
+      return toCodCustomerDetails(selectedSavedAddress);
+    }
+
+    return codDetails;
+  }, [codDetails, selectedSavedAddress]);
+
   const normalizedCodPincode = useMemo(
-    () => codDetails.pincode.replace(/\D/g, "").slice(0, 6),
-    [codDetails.pincode]
+    () => effectiveCodDetails.pincode.replace(/\D/g, "").slice(0, 6),
+    [effectiveCodDetails.pincode]
   );
 
   const codAvailabilityMessage = useMemo(() => {
@@ -257,27 +368,7 @@ export default function CartPage() {
     return codPincodes.has(normalizedCodPincode);
   }, [paymentMethod, normalizedCodPincode, codPincodes]);
 
-  const getServerToken = async () => {
-    const existing = localStorage.getItem("hairiq_server_token");
-    if (existing) {
-      return existing;
-    }
-
-    if (!user) {
-      throw new Error("Please login to continue checkout.");
-    }
-
-    const firebaseIdToken = await user.getIdToken(true);
-    const authResponse = await apiRequest<VerifyFirebaseResponse>("/auth/verify-firebase", {
-      method: "POST",
-      body: JSON.stringify({ idToken: firebaseIdToken }),
-    });
-
-    localStorage.setItem("hairiq_server_token", authResponse.data.token);
-    return authResponse.data.token;
-  };
-
-  const validateCodDetails = () => {
+  const validateCodDetails = (details: CodCustomerDetails) => {
     const requiredFields: Array<keyof CodCustomerDetails> = [
       "fullName",
       "phone",
@@ -287,12 +378,12 @@ export default function CartPage() {
       "pincode",
     ];
 
-    const missing = requiredFields.filter((field) => !codDetails[field].trim());
+    const missing = requiredFields.filter((field) => !details[field].trim());
     if (missing.length) {
       throw new Error(`Please fill: ${missing.join(", ")}`);
     }
 
-    const normalizedPhone = codDetails.phone.replace(/\D/g, "");
+    const normalizedPhone = details.phone.replace(/\D/g, "");
     if (normalizedPhone.length < 10) {
       throw new Error("Please enter a valid phone number.");
     }
@@ -446,7 +537,8 @@ export default function CartPage() {
   };
 
   const handleCodCheckout = async () => {
-    validateCodDetails();
+    const customerDetails = effectiveCodDetails;
+    validateCodDetails(customerDetails);
     if (!isCodServiceable) {
       throw new Error("Coming soon to your location!");
     }
@@ -464,7 +556,7 @@ export default function CartPage() {
         method: "POST",
         body: JSON.stringify({
           items: normalizedItems,
-          customerDetails: codDetails,
+          customerDetails,
         }),
       },
       serverToken
@@ -522,8 +614,13 @@ export default function CartPage() {
     }
   };
 
+  const totalItemsCount = useMemo(
+    () => cartItems.reduce((accumulator, item) => accumulator + item.quantity, 0),
+    [cartItems]
+  );
+
   return (
-    <div className="pt-12 space-y-8">
+    <div className="space-y-6 bg-[#f2f3f5] pb-28 pt-8 md:space-y-8 md:bg-transparent md:pb-6 md:pt-12">
       <SectionHeader eyebrow="Cart" title="Review your selection" description="Update quantities, verify prices, and continue to secure checkout." />
 
       {!cartItems.length ? (
@@ -534,114 +631,198 @@ export default function CartPage() {
           ctaHref="/products"
         />
       ) : (
-        <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
-          <div className="space-y-4">
+        <div className="grid gap-4 lg:gap-6 xl:grid-cols-[1fr_390px]">
+          <div className="space-y-3 md:space-y-4">
             {cartItems.map((item) => (
               <CartItem key={item.itemId} item={item} />
             ))}
           </div>
 
-          <aside className="h-fit rounded-2xl border border-white/10 bg-white/5 p-5 shadow-soft xl:sticky xl:top-24">
-            <h3 className="font-semibold text-coal">Price Summary</h3>
-            <div className="mt-4 space-y-2 text-sm">
-              <div className="flex justify-between text-gray-600">
-                <span>Subtotal</span>
-                <span>{currency(subtotal)}</span>
+          <aside className="h-fit space-y-4 xl:sticky xl:top-24">
+            <section className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-coal">Shipping Address</h3>
+                <Link href="/profile" className="text-xs font-semibold text-coal underline underline-offset-4">
+                  Manage
+                </Link>
               </div>
-              <div className="flex justify-between text-gray-600">
-                <span>Shipping</span>
-                <span className="flex items-center gap-2">
-                  <span className="text-gray-500 line-through">{currency(200)}</span>
-                  <span className="font-semibold text-emerald-600">FREE</span>
-                </span>
-              </div>
-              <div className="mt-3 flex justify-between border-t border-white/10 pt-3 text-coal">
-                <span>Total</span>
-                <span className="font-semibold">{currency(cartSubtotal)}</span>
-              </div>
-            </div>
-            <div className="mt-5 space-y-2 rounded-xl border border-black/10 bg-white/70 p-4">
-              <p className="text-sm font-semibold text-coal">Choose payment method</p>
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-coal">
-                <input
-                  type="radio"
-                  name="payment-method"
-                  checked={paymentMethod === "online"}
-                  onChange={() => setPaymentMethod("online")}
-                />
-                Pay Online (Razorpay)
-              </label>
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-coal">
-                <input
-                  type="radio"
-                  name="payment-method"
-                  checked={paymentMethod === "cod"}
-                  onChange={() => setPaymentMethod("cod")}
-                />
-                Cash on Delivery (COD)
-              </label>
-            </div>
 
-            {paymentMethod === "cod" ? (
-              <div className="mt-4 space-y-3 rounded-xl border border-black/10 bg-white/70 p-4">
-                <p className="text-sm font-semibold text-coal">Shipping details for COD</p>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div className="mt-3 space-y-2">
+                {addressesLoading ? <p className="text-sm text-gray-600">Loading saved addresses...</p> : null}
+                {addressesError ? <p className="text-sm text-red-700">{addressesError}</p> : null}
+
+                {savedAddresses.length
+                  ? savedAddresses.map((address) => (
+                      <label
+                        key={address.id}
+                        className={`block cursor-pointer rounded-xl border p-3 text-sm transition ${
+                          selectedAddressId === address.id
+                            ? "border-emerald-500 bg-emerald-50"
+                            : "border-black/10 bg-white hover:border-black/25"
+                        }`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <input
+                            type="radio"
+                            name="saved-address"
+                            checked={selectedAddressId === address.id}
+                            onChange={() => setSelectedAddressId(address.id)}
+                            className="mt-1 h-4 w-4"
+                          />
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="font-semibold text-coal">{address.fullName}</p>
+                              {address.isDefault ? (
+                                <span className="rounded-md bg-emerald-700 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-white">
+                                  Default
+                                </span>
+                              ) : null}
+                            </div>
+                            <p className="mt-1 text-gray-700">
+                              {address.addressLine1}
+                              {address.addressLine2 ? `, ${address.addressLine2}` : ""}
+                            </p>
+                            <p className="text-gray-700">
+                              {address.city}, {address.state} - {address.pincode}
+                            </p>
+                            <p className="mt-1 text-gray-700">Mobile: {address.phone}</p>
+                          </div>
+                        </div>
+                      </label>
+                    ))
+                  : null}
+
+                <label
+                  className={`block cursor-pointer rounded-xl border p-3 text-sm transition ${
+                    selectedAddressId === MANUAL_ADDRESS_ID
+                      ? "border-emerald-500 bg-emerald-50"
+                      : "border-black/10 bg-white hover:border-black/25"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="saved-address"
+                      checked={selectedAddressId === MANUAL_ADDRESS_ID}
+                      onChange={() => setSelectedAddressId(MANUAL_ADDRESS_ID)}
+                      className="h-4 w-4"
+                    />
+                    <p className="font-medium text-coal">Use a different address</p>
+                  </div>
+                </label>
+              </div>
+
+              {selectedAddressId === MANUAL_ADDRESS_ID ? (
+                <div className="mt-3 space-y-2">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <input
+                      type="text"
+                      value={codDetails.fullName}
+                      onChange={(event) => setCodDetails((prev) => ({ ...prev, fullName: event.target.value }))}
+                      placeholder="Full name"
+                      className="w-full rounded-lg border border-black/15 px-3 py-2 text-sm text-coal outline-none focus:border-coal"
+                    />
+                    <input
+                      type="text"
+                      value={codDetails.phone}
+                      onChange={(event) => setCodDetails((prev) => ({ ...prev, phone: event.target.value }))}
+                      placeholder="Phone number"
+                      className="w-full rounded-lg border border-black/15 px-3 py-2 text-sm text-coal outline-none focus:border-coal"
+                    />
+                  </div>
                   <input
                     type="text"
-                    value={codDetails.fullName}
-                    onChange={(event) => setCodDetails((prev) => ({ ...prev, fullName: event.target.value }))}
-                    placeholder="Full name"
+                    value={codDetails.addressLine1}
+                    onChange={(event) => setCodDetails((prev) => ({ ...prev, addressLine1: event.target.value }))}
+                    placeholder="Address line 1"
                     className="w-full rounded-lg border border-black/15 px-3 py-2 text-sm text-coal outline-none focus:border-coal"
                   />
                   <input
                     type="text"
-                    value={codDetails.phone}
-                    onChange={(event) => setCodDetails((prev) => ({ ...prev, phone: event.target.value }))}
-                    placeholder="Phone number"
+                    value={codDetails.addressLine2}
+                    onChange={(event) => setCodDetails((prev) => ({ ...prev, addressLine2: event.target.value }))}
+                    placeholder="Address line 2 (optional)"
+                    className="w-full rounded-lg border border-black/15 px-3 py-2 text-sm text-coal outline-none focus:border-coal"
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      value={codDetails.city}
+                      onChange={(event) => setCodDetails((prev) => ({ ...prev, city: event.target.value }))}
+                      placeholder="City"
+                      className="w-full rounded-lg border border-black/15 px-3 py-2 text-sm text-coal outline-none focus:border-coal"
+                    />
+                    <input
+                      type="text"
+                      value={codDetails.state}
+                      onChange={(event) => setCodDetails((prev) => ({ ...prev, state: event.target.value }))}
+                      placeholder="State"
+                      className="w-full rounded-lg border border-black/15 px-3 py-2 text-sm text-coal outline-none focus:border-coal"
+                    />
+                  </div>
+                  <input
+                    type="text"
+                    value={codDetails.pincode}
+                    onChange={(event) =>
+                      setCodDetails((prev) => ({ ...prev, pincode: event.target.value.replace(/\D/g, "").slice(0, 6) }))
+                    }
+                    placeholder="Pincode"
                     className="w-full rounded-lg border border-black/15 px-3 py-2 text-sm text-coal outline-none focus:border-coal"
                   />
                 </div>
-                <input
-                  type="text"
-                  value={codDetails.addressLine1}
-                  onChange={(event) => setCodDetails((prev) => ({ ...prev, addressLine1: event.target.value }))}
-                  placeholder="Address line 1"
-                  className="w-full rounded-lg border border-black/15 px-3 py-2 text-sm text-coal outline-none focus:border-coal"
-                />
-                <input
-                  type="text"
-                  value={codDetails.addressLine2}
-                  onChange={(event) => setCodDetails((prev) => ({ ...prev, addressLine2: event.target.value }))}
-                  placeholder="Address line 2 (optional)"
-                  className="w-full rounded-lg border border-black/15 px-3 py-2 text-sm text-coal outline-none focus:border-coal"
-                />
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="text"
-                    value={codDetails.city}
-                    onChange={(event) => setCodDetails((prev) => ({ ...prev, city: event.target.value }))}
-                    placeholder="City"
-                    className="w-full rounded-lg border border-black/15 px-3 py-2 text-sm text-coal outline-none focus:border-coal"
-                  />
-                  <input
-                    type="text"
-                    value={codDetails.state}
-                    onChange={(event) => setCodDetails((prev) => ({ ...prev, state: event.target.value }))}
-                    placeholder="State"
-                    className="w-full rounded-lg border border-black/15 px-3 py-2 text-sm text-coal outline-none focus:border-coal"
-                  />
+              ) : null}
+            </section>
+
+            <section className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm">
+              <h3 className="font-semibold text-coal">Bill Summary</h3>
+              <div className="mt-4 space-y-2 text-sm">
+                <div className="flex justify-between text-gray-700">
+                  <span>Total MRP</span>
+                  <span>{currency(subtotal + 200)}</span>
                 </div>
-                <input
-                  type="text"
-                  value={normalizedCodPincode}
-                  onChange={(event) =>
-                    setCodDetails((prev) => ({ ...prev, pincode: event.target.value.replace(/\D/g, "").slice(0, 6) }))
-                  }
-                  placeholder="Pincode"
-                  className="w-full rounded-lg border border-black/15 px-3 py-2 text-sm text-coal outline-none focus:border-coal"
-                />
+                <div className="flex justify-between text-gray-700">
+                  <span>Discount</span>
+                  <span className="text-emerald-700">-{currency(200)}</span>
+                </div>
+                <div className="flex justify-between text-gray-700">
+                  <span>Delivery Charges</span>
+                  <span className="flex items-center gap-2">
+                    <span className="text-gray-500 line-through">{currency(200)}</span>
+                    <span className="font-semibold text-emerald-700">FREE</span>
+                  </span>
+                </div>
+                <div className="mt-3 flex justify-between border-t border-black/10 pt-3 text-base font-semibold text-coal">
+                  <span>Total</span>
+                  <span>{currency(cartSubtotal)}</span>
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm">
+              <p className="text-sm font-semibold text-coal">Choose payment method</p>
+              <div className="mt-3 space-y-2">
+                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-black/10 px-3 py-2 text-sm text-coal">
+                  <input
+                    type="radio"
+                    name="payment-method"
+                    checked={paymentMethod === "online"}
+                    onChange={() => setPaymentMethod("online")}
+                  />
+                  Pay Online (Razorpay)
+                </label>
+                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-black/10 px-3 py-2 text-sm text-coal">
+                  <input
+                    type="radio"
+                    name="payment-method"
+                    checked={paymentMethod === "cod"}
+                    onChange={() => setPaymentMethod("cod")}
+                  />
+                  Cash on Delivery (COD)
+                </label>
+              </div>
+              {paymentMethod === "cod" ? (
                 <p
-                  className={`text-xs ${
+                  className={`mt-3 text-xs ${
                     codAvailabilityMessage === "Coming soon to your location!"
                       ? "font-semibold text-amber-700"
                       : codAvailabilityMessage === "COD is available for your location."
@@ -651,26 +832,66 @@ export default function CartPage() {
                 >
                   {codAvailabilityMessage}
                 </p>
+              ) : null}
+            </section>
+
+            <section className="grid grid-cols-3 gap-2 rounded-2xl border border-black/10 bg-white p-3 text-center text-xs text-gray-700 shadow-sm">
+              <div className="flex flex-col items-center gap-1">
+                <Truck className="h-5 w-5 text-emerald-700" />
+                <p>Fast Delivery</p>
               </div>
-            ) : null}
+              <div className="flex flex-col items-center gap-1">
+                <BadgeCheck className="h-5 w-5 text-emerald-700" />
+                <p>Trusted Quality</p>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <ShieldCheck className="h-5 w-5 text-emerald-700" />
+                <p>Secure Payment</p>
+              </div>
+            </section>
+
             <button
               onClick={handleCheckout}
               disabled={isProcessing || (paymentMethod === "cod" && !isCodServiceable)}
-              className="mt-5 w-full rounded-full bg-champagne px-4 py-3 text-sm font-semibold text-coal disabled:cursor-not-allowed disabled:opacity-70"
+              className="hidden w-full rounded-full bg-champagne px-4 py-3 text-sm font-semibold text-coal disabled:cursor-not-allowed disabled:opacity-70 lg:block"
             >
               {isProcessing
                 ? paymentMethod === "online"
                   ? "Opening Razorpay..."
                   : "Placing COD order..."
                 : paymentMethod === "online"
-                  ? "Proceed to Online Payment"
+                  ? "Continue To Payment"
                   : "Place COD Order"}
             </button>
-            {checkoutError ? <p className="mt-3 text-sm text-red-700">{checkoutError}</p> : null}
-            {checkoutSuccess ? <p className="mt-3 text-sm text-green-700">{checkoutSuccess}</p> : null}
+            {checkoutError ? <p className="text-sm text-red-700">{checkoutError}</p> : null}
+            {checkoutSuccess ? <p className="text-sm text-green-700">{checkoutSuccess}</p> : null}
           </aside>
         </div>
       )}
+
+      {cartItems.length ? (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-white/95 px-4 py-3 shadow-[0_-8px_24px_rgba(0,0,0,0.08)] backdrop-blur lg:hidden">
+          <div className="mb-2 flex items-center justify-between text-sm">
+            <p className="text-gray-700">
+              {totalItemsCount} item{totalItemsCount > 1 ? "s" : ""}
+            </p>
+            <p className="font-semibold text-coal">{currency(cartSubtotal)}</p>
+          </div>
+          <button
+            onClick={handleCheckout}
+            disabled={isProcessing || (paymentMethod === "cod" && !isCodServiceable)}
+            className="w-full rounded-xl bg-champagne px-4 py-3 text-sm font-semibold text-coal disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {isProcessing
+              ? paymentMethod === "online"
+                ? "Opening Razorpay..."
+                : "Placing COD order..."
+              : paymentMethod === "online"
+                ? "Continue To Payment"
+                : "Place COD Order"}
+          </button>
+        </div>
+      ) : null}
 
       {orderPlacedPopup ? (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 px-4">

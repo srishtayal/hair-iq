@@ -65,7 +65,7 @@ export default function VideoPreview() {
   return (
     <section className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <SectionHeader eyebrow="Video Library" title="Expert Styling & Installation Tips" />
+        <SectionHeader eyebrow="Video Library" title="Hear From Our Hair Expert" />
         <Link href="/videos" className="text-sm font-semibold text-champagne hover:text-[#e4c399]">
           View all videos
         </Link>

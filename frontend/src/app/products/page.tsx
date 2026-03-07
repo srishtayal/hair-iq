@@ -243,7 +243,7 @@ export default function ProductsPage() {
           ) : null}
         </div>
 
-        <div className="rounded-3xl bg-[#ECECEC] p-3 sm:p-4">
+        <div>
           <div className="grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-3">
             {productsLoading
               ? Array.from({ length: 6 }).map((_, idx) => <Skeleton key={idx} className="h-[360px]" />)

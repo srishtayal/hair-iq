@@ -3,9 +3,9 @@
 import EmptyState from "@/components/common/empty-state";
 import RatingStars from "@/components/common/rating-stars";
 import SectionHeader from "@/components/common/section-header";
-import OpenDeliveryPolicy from "@/components/product/open-delivery-policy";
 import ProductCard from "@/components/product/product-card";
 import ReviewCard from "@/components/review/review-card";
+import VideoModal from "@/components/video/video-modal";
 import { useStore } from "@/context/store-context";
 import { reviews } from "@/data/reviews";
 import { fetchProductBySlug } from "@/lib/product-api";
@@ -116,6 +116,7 @@ export default function ProductDetailPage() {
   const [deliveryLookup, setDeliveryLookup] = useState<DeliveryLookup>({});
   const [deliveryLookupLoading, setDeliveryLookupLoading] = useState(true);
   const [deliveryLookupError, setDeliveryLookupError] = useState("");
+  const [isOpenPolicyVideoOpen, setIsOpenPolicyVideoOpen] = useState(false);
   const galleryRef = useRef<HTMLDivElement | null>(null);
   const thumbnailsRef = useRef<HTMLDivElement | null>(null);
 
@@ -448,11 +449,17 @@ export default function ProductDetailPage() {
                   className="w-full rounded-full border border-black/20 bg-white px-4 py-2.5 text-sm text-coal outline-none transition sm:max-w-[220px] focus:border-coal"
                 />
                 <p className="text-sm font-medium text-coal">{deliveryEstimateMessage}</p>
-                <div className="flex items-center gap-2 text-xs text-gray-700 md:text-sm">
-                  <p>Worried about quality? Open Delivery is available on every order.</p>
-                </div>
               </div>
             </section>
+            <button
+              type="button"
+              onClick={() => setIsOpenPolicyVideoOpen(true)}
+              className="w-full rounded-2xl border border-emerald-500/35 bg-emerald-50 p-4 text-left transition hover:bg-emerald-100/70"
+              aria-label="Play open delivery policy video"
+            >
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-emerald-700">Open Delivery</p>
+              <p className="mt-1 text-sm font-semibold text-emerald-900">Inspect the product at delivery before accepting it.</p>
+            </button>
             <div className="flex flex-wrap gap-3">
               {selectedVariantId && selectedVariantQty > 0 ? (
                 <div className="flex items-center gap-2 rounded-full border border-black/20 bg-white px-2 py-1">
@@ -522,7 +529,59 @@ export default function ProductDetailPage() {
           </div>
         </section>
 
-        <OpenDeliveryPolicy />
+        <section className="space-y-5 rounded-3xl border border-white/10 bg-white/5 p-6 md:p-8">
+          <SectionHeader eyebrow="Policy" title="Open Delivery Policy" />
+
+          <div className="space-y-3 text-sm text-gray-700 md:text-base">
+            <p>
+              At our marketplace, every order comes with <span className="font-semibold text-coal">Open Delivery</span>.
+            </p>
+            <p>
+              This means you can open the package at the time of delivery and check the product in front of the delivery executive
+              before accepting it.
+            </p>
+            <p>
+              Because you get the opportunity to inspect the product before taking it, we do not offer returns after the delivery has
+              been accepted.
+            </p>
+          </div>
+
+          <div className="space-y-3 text-sm text-gray-700 md:text-base">
+            <h3 className="text-base font-semibold text-coal md:text-lg">How Open Delivery Works</h3>
+            <ul className="list-disc space-y-2 pl-5">
+              <li>You may open the package at the time of delivery.</li>
+              <li>You can verify the product, quantity, visible condition, and size.</li>
+              <li>If there is any issue (damage, wrong item, missing quantity, size mismatch), you must refuse the delivery on the spot.</li>
+              <li>Once the order is accepted after inspection, it is considered final and non-returnable.</li>
+            </ul>
+            <p>We strongly encourage customers to thoroughly check the product during delivery to avoid any inconvenience later.</p>
+          </div>
+
+          <div className="space-y-3 text-sm text-gray-700 md:text-base">
+            <h3 className="text-base font-semibold text-coal md:text-lg">Exchange Policy</h3>
+            <p>We do not offer exchanges once the order has been accepted under Open Delivery.</p>
+            <p>
+              Since you are given the opportunity to inspect the product before accepting it, all sales are considered final after
+              successful delivery acceptance.
+            </p>
+          </div>
+
+          <div className="space-y-3 text-sm text-gray-700 md:text-base">
+            <h3 className="text-base font-semibold text-coal md:text-lg">Important Note</h3>
+            <p>Our Open Delivery policy is designed to give you complete transparency and confidence before accepting your order.</p>
+            <p>
+              Please ensure you check your items carefully at the time of delivery, as post-acceptance returns or exchanges will not be
+              entertained.
+            </p>
+          </div>
+        </section>
+
+        <VideoModal
+          open={isOpenPolicyVideoOpen}
+          onClose={() => setIsOpenPolicyVideoOpen(false)}
+          embedUrl="/videos/open-delivery.mp4"
+          title="Open Delivery Policy"
+        />
       </div>
     </div>
   );
