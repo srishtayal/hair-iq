@@ -234,12 +234,14 @@ export default function HeroSection() {
                 <input
                   type="date"
                   value={formState.preferredDate}
+                  placeholder="Preferred Date"
                   onChange={(event) => setFormState((previous) => ({ ...previous, preferredDate: event.target.value }))}
                   className="rounded-xl border border-black/15 px-3 py-2.5 text-sm text-coal outline-none focus:border-coal"
                 />
                 <input
                   type="time"
                   value={formState.preferredTime}
+                  placeholder="Preferred Time"
                   onChange={(event) => setFormState((previous) => ({ ...previous, preferredTime: event.target.value }))}
                   className="rounded-xl border border-black/15 px-3 py-2.5 text-sm text-coal outline-none focus:border-coal"
                 />
