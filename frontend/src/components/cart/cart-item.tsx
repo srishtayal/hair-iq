@@ -13,7 +13,8 @@ export default function CartItem({ item }: { item: CartItemType }) {
   if (!product) return null;
 
   const variant = product.variants.find((variantItem) => variantItem.id === item.variantId) ?? product.variants[0];
-  const linePrice = product.basePrice * item.quantity;
+  const unitPrice = product.basePrice > 0 ? product.basePrice : variant?.price ?? 0;
+  const linePrice = unitPrice * item.quantity;
 
   return (
     <article className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 sm:flex-row">
@@ -36,8 +37,9 @@ export default function CartItem({ item }: { item: CartItemType }) {
               <Plus className="h-3 w-3" />
             </button>
           </div>
-          <button onClick={() => removeFromCart(item.itemId)} className="text-sm text-gray-600 hover:text-coal">
+          <button onClick={() => removeFromCart(item.itemId)} className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-coal">
             <Trash2 className="h-4 w-4" />
+            Remove
           </button>
         </div>
       </div>

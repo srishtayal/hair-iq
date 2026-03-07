@@ -5,9 +5,11 @@ import SectionHeader from "@/components/common/section-header";
 import { useStore } from "@/context/store-context";
 import { apiRequest } from "@/lib/api";
 import { currency } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 const SERVER_USER_KEY = "hairiq_server_user";
+const LOCAL_ORDER_HISTORY_KEY = "hairiq_local_orders";
 
 type ServerUser = {
   id: string;
@@ -68,6 +70,7 @@ type OrderSummary = {
       sku: string;
     } | null;
   }>;
+  isLocalOrder?: boolean;
 };
 
 const emptyAddress: AddressPayload = {
@@ -115,7 +118,8 @@ const isPastOrderStatus = (status: string) => {
 const accountPerks = ["Priority Support", "Fast Reorders", "Secure Checkout"];
 
 export default function ProfilePage() {
-  const { logout, user, authReady, isAuthenticated, goToAuth } = useStore();
+  const { logout, user, authReady, isAuthenticated, goToAuth, addToCart } = useStore();
+  const router = useRouter();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -200,7 +204,16 @@ export default function ProfilePage() {
 
       applyUserToForm(meResponse.data.user);
       localStorage.setItem(SERVER_USER_KEY, JSON.stringify(meResponse.data.user));
-      setOrders(ordersResponse.data);
+      const localHistoryRaw = localStorage.getItem(LOCAL_ORDER_HISTORY_KEY);
+      const localHistory = localHistoryRaw ? (JSON.parse(localHistoryRaw) as OrderSummary[]) : [];
+      const mergedOrders = [...(ordersResponse.data || [])];
+      const existingIds = new Set(mergedOrders.map((order) => order.id));
+      localHistory.forEach((order) => {
+        if (!order?.id || existingIds.has(order.id)) return;
+        mergedOrders.push({ ...order, isLocalOrder: true });
+      });
+
+      setOrders(mergedOrders);
       setAddresses(addressesResponse.data);
     } catch (loadError) {
       const message = loadError instanceof Error ? loadError.message : "Unable to load profile details";
@@ -371,6 +384,18 @@ export default function ProfilePage() {
     };
   }, [orders]);
 
+  const handleReorder = (order: OrderSummary) => {
+    order.items.forEach((item) => {
+      if (!item.product?.id || !item.variant?.id) return;
+
+      for (let counter = 0; counter < item.quantity; counter += 1) {
+        addToCart(item.product.id, item.variant.id);
+      }
+    });
+
+    router.push("/cart");
+  };
+
   const orderCards = useMemo(() => {
     const renderOrders = (orderList: OrderSummary[], emptyTitle: string, emptyDescription: string) => {
       if (!orderList.length) {
@@ -444,6 +469,14 @@ export default function ProfilePage() {
               <p>{currency(order.totalAmount)}</p>
             </div>
           </div>
+
+          <button
+            type="button"
+            onClick={() => handleReorder(order)}
+            className="mt-4 w-full rounded-full border border-black/20 bg-white px-4 py-2.5 text-sm font-semibold text-coal transition hover:bg-gray-50"
+          >
+            Reorder
+          </button>
         </motion.article>
       ));
     };

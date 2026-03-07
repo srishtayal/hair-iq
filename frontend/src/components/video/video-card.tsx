@@ -116,7 +116,7 @@ export default function VideoCard({
             muted
             loop
             playsInline
-            preload="metadata"
+            preload="none"
             className="pointer-events-none absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
           />
         ) : (

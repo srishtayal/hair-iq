@@ -103,6 +103,7 @@ type OrderPlacedPopup = {
 };
 
 const PINCODE_REGEX = /^\d{6}$/;
+const LOCAL_ORDER_HISTORY_KEY = "hairiq_local_orders";
 
 const sanitizeCsvCell = (value: string) => value.replace(/^"|"$/g, "").trim();
 
@@ -169,7 +170,7 @@ const loadRazorpayScript = async () => {
 };
 
 export default function CartPage() {
-  const { cartItems, cartSubtotal, isAuthenticated, goToAuth, user, clearCart } = useStore();
+  const { cartItems, cartSubtotal, isAuthenticated, goToAuth, user, clearCart, getCartProduct } = useStore();
   const subtotal = cartSubtotal;
   const [isProcessing, setIsProcessing] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
@@ -290,6 +291,11 @@ export default function CartPage() {
     if (missing.length) {
       throw new Error(`Please fill: ${missing.join(", ")}`);
     }
+
+    const normalizedPhone = codDetails.phone.replace(/\D/g, "");
+    if (normalizedPhone.length < 10) {
+      throw new Error("Please enter a valid phone number.");
+    }
   };
 
   const createOnlineOrder = async (serverToken: string) => {
@@ -320,6 +326,61 @@ export default function CartPage() {
     }
   };
 
+  const persistLocalOrderHistory = (payload: { orderId: string; paymentStatus: string; orderStatus: string }) => {
+    const orderItems = cartItems
+      .map((item) => {
+        const product = getCartProduct(item);
+        const variant = product?.variants.find((variantItem) => variantItem.id === item.variantId);
+        if (!product || !variant) return null;
+        const unitPrice = product.basePrice > 0 ? product.basePrice : variant.price;
+
+        return {
+          id: `${payload.orderId}-${item.itemId}`,
+          quantity: item.quantity,
+          priceAtPurchase: unitPrice,
+          lineTotal: unitPrice * item.quantity,
+          product: {
+            id: product.id,
+            name: product.name,
+            slug: product.slug,
+            category: product.category,
+          },
+          variant: {
+            id: variant.id,
+            size: null,
+            color: null,
+            density: null,
+            price: unitPrice,
+            sku: variant.label,
+          },
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
+
+    const nextOrder = {
+      id: payload.orderId,
+      createdAt: new Date().toISOString(),
+      totalAmount: cartSubtotal,
+      shippingAmount: 0,
+      discountAmount: 0,
+      orderStatus: payload.orderStatus,
+      paymentStatus: payload.paymentStatus,
+      totalItems: cartItems.reduce((accumulator, item) => accumulator + item.quantity, 0),
+      items: orderItems,
+      isLocalOrder: true,
+    };
+
+    try {
+      const existing = localStorage.getItem(LOCAL_ORDER_HISTORY_KEY);
+      const parsed = existing ? JSON.parse(existing) : [];
+      const safeParsed = Array.isArray(parsed) ? parsed : [];
+      const withoutDuplicate = safeParsed.filter((order) => order?.id !== nextOrder.id);
+      localStorage.setItem(LOCAL_ORDER_HISTORY_KEY, JSON.stringify([nextOrder, ...withoutDuplicate].slice(0, 20)));
+    } catch {
+      // Non-blocking: checkout success should not fail due to local history write issues.
+    }
+  };
+
   const handleOnlineCheckout = async () => {
     try {
       const sdkLoaded = await loadRazorpayScript();
@@ -346,22 +407,33 @@ export default function CartPage() {
           color: "#d4b894",
         },
         handler: async (paymentResponse) => {
-          await apiRequest<VerifySignatureResponse>("/orders/verify-signature", {
+          const verificationResponse = await apiRequest<VerifySignatureResponse>("/orders/verify-signature", {
             method: "POST",
             body: JSON.stringify(paymentResponse),
           });
 
+          if (!verificationResponse?.data?.verified) {
+            throw new Error("Payment verification failed. Your cart is still saved, please retry.");
+          }
+
           clearCart();
+          persistLocalOrderHistory({
+            orderId: paymentResponse.razorpay_order_id,
+            paymentStatus: "paid",
+            orderStatus: "confirmed",
+          });
           setCheckoutSuccess("Payment verified successfully.");
           setOrderPlacedPopup({
             title: "Order placed successfully",
             message: "Your online payment is confirmed. We will process your order shortly.",
+            orderId: paymentResponse.razorpay_order_id,
             amount: cartSubtotal,
           });
           setIsProcessing(false);
         },
         modal: {
           ondismiss: () => {
+            setCheckoutError("Payment was not completed. Your cart is still saved so you can retry checkout.");
             setIsProcessing(false);
           },
         },
@@ -399,6 +471,11 @@ export default function CartPage() {
     );
 
     clearCart();
+    persistLocalOrderHistory({
+      orderId: codResponse.data.orderId,
+      paymentStatus: "COD_PENDING",
+      orderStatus: "COD_PENDING",
+    });
     setCheckoutSuccess(`COD order placed. Order ID: ${codResponse.data.orderId}. Status: COD_PENDING`);
     setOrderPlacedPopup({
       title: "Order placed successfully",
@@ -457,14 +534,14 @@ export default function CartPage() {
           ctaHref="/products"
         />
       ) : (
-        <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+        <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
           <div className="space-y-4">
             {cartItems.map((item) => (
               <CartItem key={item.itemId} item={item} />
             ))}
           </div>
 
-          <aside className="h-fit rounded-2xl border border-white/10 bg-white/5 p-5 shadow-soft lg:sticky lg:top-24">
+          <aside className="h-fit rounded-2xl border border-white/10 bg-white/5 p-5 shadow-soft xl:sticky xl:top-24">
             <h3 className="font-semibold text-coal">Price Summary</h3>
             <div className="mt-4 space-y-2 text-sm">
               <div className="flex justify-between text-gray-600">
@@ -483,7 +560,7 @@ export default function CartPage() {
                 <span className="font-semibold">{currency(cartSubtotal)}</span>
               </div>
             </div>
-            <div className="mt-5 space-y-2 rounded-xl border border-black/10 bg-white/70 p-3">
+            <div className="mt-5 space-y-2 rounded-xl border border-black/10 bg-white/70 p-4">
               <p className="text-sm font-semibold text-coal">Choose payment method</p>
               <label className="flex cursor-pointer items-center gap-2 text-sm text-coal">
                 <input
@@ -506,22 +583,24 @@ export default function CartPage() {
             </div>
 
             {paymentMethod === "cod" ? (
-              <div className="mt-4 space-y-2 rounded-xl border border-black/10 bg-white/70 p-3">
+              <div className="mt-4 space-y-3 rounded-xl border border-black/10 bg-white/70 p-4">
                 <p className="text-sm font-semibold text-coal">Shipping details for COD</p>
-                <input
-                  type="text"
-                  value={codDetails.fullName}
-                  onChange={(event) => setCodDetails((prev) => ({ ...prev, fullName: event.target.value }))}
-                  placeholder="Full name"
-                  className="w-full rounded-lg border border-black/15 px-3 py-2 text-sm text-coal outline-none focus:border-coal"
-                />
-                <input
-                  type="text"
-                  value={codDetails.phone}
-                  onChange={(event) => setCodDetails((prev) => ({ ...prev, phone: event.target.value }))}
-                  placeholder="Phone number"
-                  className="w-full rounded-lg border border-black/15 px-3 py-2 text-sm text-coal outline-none focus:border-coal"
-                />
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <input
+                    type="text"
+                    value={codDetails.fullName}
+                    onChange={(event) => setCodDetails((prev) => ({ ...prev, fullName: event.target.value }))}
+                    placeholder="Full name"
+                    className="w-full rounded-lg border border-black/15 px-3 py-2 text-sm text-coal outline-none focus:border-coal"
+                  />
+                  <input
+                    type="text"
+                    value={codDetails.phone}
+                    onChange={(event) => setCodDetails((prev) => ({ ...prev, phone: event.target.value }))}
+                    placeholder="Phone number"
+                    className="w-full rounded-lg border border-black/15 px-3 py-2 text-sm text-coal outline-none focus:border-coal"
+                  />
+                </div>
                 <input
                   type="text"
                   value={codDetails.addressLine1}

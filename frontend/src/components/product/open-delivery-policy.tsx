@@ -1,9 +1,24 @@
+"use client";
+
 import SectionHeader from "@/components/common/section-header";
+import VideoModal from "@/components/video/video-modal";
+import { useState } from "react";
 
 export default function OpenDeliveryPolicy() {
+  const [isVideoOpen, setIsVideoOpen] = useState(false);
+
   return (
     <section className="space-y-6 rounded-3xl border border-white/10 bg-white/5 p-6 md:p-8">
-      <SectionHeader eyebrow="Policy" title="Return & Exchange Policy" />
+      <SectionHeader eyebrow="Policy" title="Understand Open Delivery" />
+      <div className="rounded-2xl border border-black/10 bg-gradient-to-r from-orange-50/60 via-white to-orange-50/40 p-4">
+        <button
+          type="button"
+          onClick={() => setIsVideoOpen(true)}
+          className="text-sm font-semibold text-coal underline decoration-champagne underline-offset-4 transition hover:text-black"
+        >
+          Click here to understand Open Delivery
+        </button>
+      </div>
 
       <div className="space-y-6 text-sm text-gray-700 md:text-base">
         <div className="space-y-3">
@@ -58,6 +73,13 @@ export default function OpenDeliveryPolicy() {
           </p>
         </div>
       </div>
+
+      <VideoModal
+        open={isVideoOpen}
+        onClose={() => setIsVideoOpen(false)}
+        embedUrl="/videos/open-delivery.mp4"
+        title="Understand Open Delivery"
+      />
     </section>
   );
 }

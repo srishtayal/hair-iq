@@ -63,5 +63,50 @@ export const videos: Video[] = [
     thumbnail: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=1200&q=80",
     embedUrl: "/videos/7.mp4",
     category: "Product"
+  },
+  {
+    id: "vid8",
+    title: "Real Client Transformation",
+    description: "See a real before-after transformation and how naturally the system blends.",
+    duration: "Trending",
+    thumbnail: "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=1200&q=80",
+    embedUrl: "/videos/reel.mp4",
+    category: "Transformations"
+  },
+  {
+    id: "vid9",
+    title: "Consultation Highlights",
+    description: "Quick look at what happens during our consultation and fitting recommendations.",
+    duration: "New",
+    thumbnail: "https://images.unsplash.com/photo-1472417583565-62e7bdeda490?auto=format&fit=crop&w=1200&q=80",
+    embedUrl: "/videos/whatsapp-video-01-05-35.mp4",
+    category: "Informative"
+  },
+  {
+    id: "vid10",
+    title: "Patch Care Routine",
+    description: "A short care routine for maintaining quality, hold, and long-term comfort.",
+    duration: "Tips",
+    thumbnail: "https://images.unsplash.com/photo-1480455624313-e29b44bbfde1?auto=format&fit=crop&w=1200&q=80",
+    embedUrl: "/videos/whatsapp-video-01-05-36.mp4",
+    category: "Informative"
+  },
+  {
+    id: "vid11",
+    title: "Salon Style Finish",
+    description: "How to style your patch for office, casual, and occasion-ready looks.",
+    duration: "Style",
+    thumbnail: "https://images.unsplash.com/photo-1519345182560-3f2917c472ef?auto=format&fit=crop&w=1200&q=80",
+    embedUrl: "/videos/whatsapp-video-01-05-37.mp4",
+    category: "Product"
+  },
+  {
+    id: "vid12",
+    title: "Hairline Detailing Demo",
+    description: "Close-up look at hairline detailing for a seamless natural appearance.",
+    duration: "Featured",
+    thumbnail: "https://images.unsplash.com/photo-1516257984-b1b4d707412e?auto=format&fit=crop&w=1200&q=80",
+    embedUrl: "/videos/whatsapp-video-01-05-37-1.mp4",
+    category: "Transformations"
   }
 ];

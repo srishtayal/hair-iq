@@ -12,6 +12,7 @@ const wishlistRoutes = require('./routes/wishlistRoutes');
 const addressRoutes = require('./routes/addressRoutes');
 const cartRoutes = require('./routes/cartRoutes');
 const orderRoutes = require('./routes/orderRoutes');
+const bookingRoutes = require('./routes/bookingRoutes');
 const sequelize = require('./config/db');
 
 const app = express();
@@ -88,6 +89,7 @@ app.use(wishlistRoutes);
 app.use(addressRoutes);
 app.use(cartRoutes);
 app.use(orderRoutes);
+app.use(bookingRoutes);
 
 app.use(errorHandler);
 

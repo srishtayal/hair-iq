@@ -16,6 +16,8 @@ type StoreContextType = {
   cartItems: CartItemType[];
   wishlist: string[];
   addToCart: (productId: string, variantId?: string) => void;
+  setCartQuantity: (productId: string, variantId: string, quantity: number) => void;
+  getCartQuantity: (productId: string, variantId: string) => number;
   updateCartQty: (itemId: string, quantity: number) => void;
   removeFromCart: (itemId: string) => void;
   clearCart: () => void;
@@ -216,6 +218,39 @@ export const StoreProvider = ({ children }: { children: React.ReactNode }) => {
     });
   };
 
+  const setCartQuantity = (productId: string, variantId: string, quantity: number) => {
+    const normalizedQuantity = Math.max(0, Math.min(quantity, 10));
+    const itemId = `${productId}-${variantId}`;
+
+    setCartItems((previous) => {
+      const existing = previous.find((item) => item.itemId === itemId);
+
+      if (normalizedQuantity <= 0) {
+        if (!existing) return previous;
+        return previous.filter((item) => item.itemId !== itemId);
+      }
+
+      if (existing) {
+        return previous.map((item) =>
+          item.itemId === itemId ? { ...item, quantity: normalizedQuantity } : item
+        );
+      }
+
+      return [
+        ...previous,
+        {
+          itemId,
+          productId,
+          variantId,
+          quantity: normalizedQuantity
+        }
+      ];
+    });
+  };
+
+  const getCartQuantity = (productId: string, variantId: string) =>
+    cartItems.find((item) => item.productId === productId && item.variantId === variantId)?.quantity ?? 0;
+
   const updateCartQty = (itemId: string, quantity: number) => {
     if (quantity < 1) return;
     setCartItems((prev) => prev.map((item) => (item.itemId === itemId ? { ...item, quantity: Math.min(quantity, 10) } : item)));
@@ -244,7 +279,9 @@ export const StoreProvider = ({ children }: { children: React.ReactNode }) => {
     () =>
       cartItems.reduce((sum, item) => {
         const product = products.find((p) => p.id === item.productId);
-        return sum + (product?.basePrice ?? 0) * item.quantity;
+        const variant = product?.variants.find((variantItem) => variantItem.id === item.variantId);
+        const unitPrice = product?.basePrice && product.basePrice > 0 ? product.basePrice : (variant?.price ?? 0);
+        return sum + unitPrice * item.quantity;
       }, 0),
     [cartItems, products]
   );
@@ -305,6 +342,8 @@ export const StoreProvider = ({ children }: { children: React.ReactNode }) => {
         cartItems,
         wishlist,
         addToCart,
+        setCartQuantity,
+        getCartQuantity,
         updateCartQty,
         removeFromCart,
         clearCart,

@@ -68,9 +68,77 @@ const ensureOrderStatusEnumValues = async (sequelize) => {
   }
 };
 
+const ensureBookingRequestTable = async (sequelize) => {
+  const queryInterface = sequelize.getQueryInterface();
+  const tableName = 'booking_requests';
+
+  const allTables = await queryInterface.showAllTables();
+  const normalizedTables = allTables.map((entry) => {
+    if (typeof entry === 'string') return entry;
+    return entry?.tableName || '';
+  });
+
+  if (normalizedTables.includes(tableName)) {
+    return;
+  }
+
+  await queryInterface.createTable(tableName, {
+    id: {
+      type: 'UUID',
+      allowNull: false,
+      primaryKey: true,
+    },
+    name: {
+      type: 'VARCHAR(255)',
+      allowNull: false,
+    },
+    phone: {
+      type: 'VARCHAR(20)',
+      allowNull: false,
+    },
+    area: {
+      type: 'VARCHAR(255)',
+      allowNull: false,
+    },
+    address: {
+      type: 'TEXT',
+      allowNull: false,
+    },
+    preferredDate: {
+      type: 'DATE',
+      allowNull: false,
+    },
+    preferredTime: {
+      type: 'VARCHAR(10)',
+      allowNull: false,
+    },
+    source: {
+      type: 'VARCHAR(255)',
+      allowNull: false,
+      defaultValue: 'delhi_ncr_poster',
+    },
+    status: {
+      type: 'VARCHAR(50)',
+      allowNull: false,
+      defaultValue: 'new',
+    },
+    createdAt: {
+      type: 'TIMESTAMP WITH TIME ZONE',
+      allowNull: false,
+      defaultValue: sequelize.literal('NOW()'),
+    },
+    updatedAt: {
+      type: 'TIMESTAMP WITH TIME ZONE',
+      allowNull: false,
+      defaultValue: sequelize.literal('NOW()'),
+    },
+  });
+};
+
 const ensureSchema = async (sequelize) => {
   await ensureOrderStatusEnumValues(sequelize);
   await ensureProductColumns(sequelize);
+  await ensureBookingRequestTable(sequelize);
   await backfillOrderItemPrices(sequelize);
   await backfillOrderTotals(sequelize);
 };

@@ -1,9 +1,10 @@
 import SectionHeader from "@/components/common/section-header";
 import ReviewCard from "@/components/review/review-card";
 import { reviews } from "@/data/reviews";
+import Link from "next/link";
 
 export default function TestimonialSection() {
-  const featuredReviews = reviews.slice(0, 7);
+  const featuredReviews = reviews.slice(0, 12);
 
   return (
     <section className="space-y-8">
@@ -19,6 +20,12 @@ export default function TestimonialSection() {
           </div>
         ))}
       </div>
+      <Link
+        href="/reviews"
+        className="inline-flex rounded-full border border-black/20 bg-white px-6 py-2.5 text-sm font-semibold text-coal transition hover:bg-gray-50"
+      >
+        View All Reviews
+      </Link>
     </section>
   );
 }

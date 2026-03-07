@@ -1,6 +1,6 @@
 const path = require('path');
 const fs = require('fs');
-const { User, Product, ProductVariant, ProductMedia, Order, OrderItem, Coupon, Payment, Address } = require('../models');
+const { User, Product, ProductVariant, ProductMedia, Order, OrderItem, Coupon, Payment, Address, BookingRequest } = require('../models');
 
 const buildProductShowPreview = () => async (response) => {
   if (!response.record || !response.record.params?.id) return response;
@@ -231,6 +231,15 @@ const mountAdmin = async (app) => {
           navigation: { name: 'Promotions', icon: 'Discount' },
           listProperties: ['id', 'code', 'discountType', 'value', 'expiresAt', 'usageLimit', 'createdAt'],
           editProperties: ['code', 'discountType', 'value', 'minOrderValue', 'maxDiscount', 'expiresAt', 'usageLimit'],
+        },
+      },
+      {
+        resource: BookingRequest,
+        options: {
+          navigation: { name: 'Leads', icon: 'User' },
+          listProperties: ['id', 'name', 'phone', 'area', 'preferredDate', 'preferredTime', 'status', 'createdAt'],
+          editProperties: ['name', 'phone', 'area', 'address', 'preferredDate', 'preferredTime', 'status', 'source'],
+          showProperties: ['id', 'name', 'phone', 'area', 'address', 'preferredDate', 'preferredTime', 'status', 'source', 'createdAt', 'updatedAt'],
         },
       },
     ],

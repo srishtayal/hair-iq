@@ -5,7 +5,7 @@ import { useStore } from "@/context/store-context";
 import { currency } from "@/lib/utils";
 import { Product } from "@/types";
 import { motion } from "framer-motion";
-import { Heart, ShoppingBag } from "lucide-react";
+import { Heart, Minus, Plus, ShoppingBag } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
@@ -16,12 +16,14 @@ type ProductCardProps = {
 };
 
 export default function ProductCard({ product, mode = "default" }: ProductCardProps) {
-  const { addToCart, toggleWishlist, isWishlisted } = useStore();
+  const { addToCart, toggleWishlist, isWishlisted, getCartQuantity, setCartQuantity } = useStore();
   const [showVariantPicker, setShowVariantPicker] = useState(false);
   const defaultVariantId = product.variants[0]?.id;
   const currentPrice = product.basePrice > 0 ? product.basePrice : product.variants[0]?.price ?? 0;
   const highestVariantPrice = product.variants.length ? Math.max(...product.variants.map((variant) => variant.price)) : currentPrice;
   const originalPrice = highestVariantPrice > currentPrice ? highestVariantPrice : Math.ceil(currentPrice * 1.12);
+  const discountPercent = originalPrice > currentPrice ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100) : 0;
+  const defaultVariantQty = defaultVariantId ? getCartQuantity(product.id, defaultVariantId) : 0;
 
   const handleVariantSelect = (variantId: string) => {
     if (!variantId) return;
@@ -45,6 +47,11 @@ export default function ProductCard({ product, mode = "default" }: ProductCardPr
               Best Seller
             </span>
           ) : null}
+          {discountPercent > 0 ? (
+            <span className="absolute right-2 top-2 rounded-full bg-emerald-600 px-2.5 py-1 text-[10px] font-semibold tracking-[0.04em] text-white sm:text-xs">
+              {discountPercent}% OFF
+            </span>
+          ) : null}
         </Link>
 
         <div className="space-y-2 px-1 pt-3">
@@ -54,7 +61,6 @@ export default function ProductCard({ product, mode = "default" }: ProductCardPr
           >
             {product.name}
           </Link>
-          <p className="text-sm uppercase tracking-[0.18em] text-gray-600">{product.category}</p>
 
           <div className="flex items-center gap-2">
             <RatingStars rating={product.rating} />
@@ -66,12 +72,32 @@ export default function ProductCard({ product, mode = "default" }: ProductCardPr
             <p className="text-2xl font-semibold text-coal sm:text-[2.05rem]">{currency(currentPrice)}</p>
           </div>
 
-          <button
-            onClick={() => addToCart(product.id, defaultVariantId)}
-            className="mt-2 inline-flex w-full items-center justify-center rounded-full bg-black px-4 py-3 text-base font-semibold text-white transition hover:bg-black/90"
-          >
-            Add To Cart
-          </button>
+          {defaultVariantId && defaultVariantQty > 0 ? (
+            <div className="mt-2 flex items-center justify-between rounded-full border border-black/20 bg-white px-3 py-2">
+              <button
+                onClick={() => setCartQuantity(product.id, defaultVariantId, defaultVariantQty - 1)}
+                className="rounded-full p-1 text-coal transition hover:bg-gray-100"
+                aria-label="Decrease quantity"
+              >
+                <Minus className="h-4 w-4" />
+              </button>
+              <span className="text-sm font-semibold text-coal">{defaultVariantQty}</span>
+              <button
+                onClick={() => setCartQuantity(product.id, defaultVariantId, defaultVariantQty + 1)}
+                className="rounded-full p-1 text-coal transition hover:bg-gray-100"
+                aria-label="Increase quantity"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => addToCart(product.id, defaultVariantId)}
+              className="mt-2 inline-flex w-full items-center justify-center rounded-full bg-black px-4 py-3 text-base font-semibold text-white transition hover:bg-black/90"
+            >
+              Add To Cart
+            </button>
+          )}
         </div>
       </motion.article>
     );

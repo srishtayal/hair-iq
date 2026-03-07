@@ -31,6 +31,10 @@ export type Review = {
   title: string;
   content: string;
   avatar: string;
+  media?: {
+    type: "image" | "video";
+    url: string;
+  };
 };
 
 export type Video = {

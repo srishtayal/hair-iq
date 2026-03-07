@@ -21,7 +21,11 @@ const reviewTemplates: ReviewTemplate[] = [
     rating: 5,
     title: "Natural Look - Nobody Noticed",
     content:
-      "I got the Mirage patch from HairIQ. The finish looks completely natural. Even my close friends didn't realise I was wearing a patch."
+      "I got the Mirage patch from HairIQ. The finish looks completely natural. Even my close friends didn't realise I was wearing a patch.",
+    media: {
+      type: "image",
+      url: "https://images.unsplash.com/photo-1499996860823-5214fcc65f8f?auto=format&fit=crop&w=1200&q=80",
+    },
   },
   {
     user: "Amit Verma",
@@ -43,7 +47,11 @@ const reviewTemplates: ReviewTemplate[] = [
     rating: 5,
     title: "Confidence Came Back",
     content:
-      "Hair loss had reduced my confidence. After getting the patch from HairIQ things improved. Now I feel comfortable meeting people again."
+      "Hair loss had reduced my confidence. After getting the patch from HairIQ things improved. Now I feel comfortable meeting people again.",
+    media: {
+      type: "video",
+      url: "/videos/reel.mp4",
+    },
   },
   {
     user: "Manish Arora",
