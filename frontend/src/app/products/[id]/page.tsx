@@ -524,7 +524,7 @@ export default function ProductDetailPage() {
           <SectionHeader eyebrow="More To Explore" title="Similar products" />
           <div className="grid grid-cols-2 gap-4 sm:gap-5 xl:grid-cols-3">
             {similarProducts.map((similarProduct) => (
-              <ProductCard key={similarProduct.id} product={similarProduct} />
+              <ProductCard key={similarProduct.id} product={similarProduct} mode="listing" />
             ))}
           </div>
         </section>

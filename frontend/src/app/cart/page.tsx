@@ -389,6 +389,25 @@ export default function CartPage() {
     }
   };
 
+  const isManualAddressIncomplete = useMemo(() => {
+    if (selectedAddressId !== MANUAL_ADDRESS_ID) return false;
+
+    const requiredFields: Array<keyof CodCustomerDetails> = [
+      "fullName",
+      "phone",
+      "addressLine1",
+      "city",
+      "state",
+      "pincode",
+    ];
+
+    const hasMissingRequired = requiredFields.some((field) => !codDetails[field].trim());
+    const normalizedPhone = codDetails.phone.replace(/\D/g, "");
+    const normalizedPincode = codDetails.pincode.replace(/\D/g, "");
+
+    return hasMissingRequired || normalizedPhone.length < 10 || normalizedPincode.length !== 6;
+  }, [codDetails, selectedAddressId]);
+
   const createOnlineOrder = async (serverToken: string) => {
     try {
       return await apiRequest<RazorpayOrderResponse>(
@@ -595,6 +614,10 @@ export default function CartPage() {
     if (cartSubtotal <= 0) {
       alert("Unable to checkout because total amount is 0. Please update product pricing.");
       return;
+    }
+
+    if (selectedAddressId === MANUAL_ADDRESS_ID) {
+      validateCodDetails(codDetails);
     }
 
     if (isProcessing) return;
@@ -852,7 +875,7 @@ export default function CartPage() {
 
             <button
               onClick={handleCheckout}
-              disabled={isProcessing || (paymentMethod === "cod" && !isCodServiceable)}
+              disabled={isProcessing || isManualAddressIncomplete || (paymentMethod === "cod" && !isCodServiceable)}
               className="hidden w-full rounded-full bg-champagne px-4 py-3 text-sm font-semibold text-coal disabled:cursor-not-allowed disabled:opacity-70 lg:block"
             >
               {isProcessing
@@ -879,7 +902,7 @@ export default function CartPage() {
           </div>
           <button
             onClick={handleCheckout}
-            disabled={isProcessing || (paymentMethod === "cod" && !isCodServiceable)}
+            disabled={isProcessing || isManualAddressIncomplete || (paymentMethod === "cod" && !isCodServiceable)}
             className="w-full rounded-xl bg-champagne px-4 py-3 text-sm font-semibold text-coal disabled:cursor-not-allowed disabled:opacity-70"
           >
             {isProcessing

@@ -30,7 +30,10 @@ export default function ProductCard({ product, mode = "default" }: ProductCardPr
 
   if (mode === "listing") {
     return (
-      <motion.article whileHover={{ y: -3 }} className="group overflow-hidden rounded-2xl border border-black/10 bg-white p-2.5 sm:p-3">
+      <motion.article
+        whileHover={{ y: -3 }}
+        className="group flex h-full flex-col overflow-hidden rounded-2xl border border-black/10 bg-white p-2.5 sm:p-3"
+      >
         <Link href={`/products/${product.slug}`} className="relative block aspect-[9/10] overflow-hidden rounded-xl bg-[#f3f3f3]">
           <Image
             src={product.images[0]}
@@ -46,10 +49,10 @@ export default function ProductCard({ product, mode = "default" }: ProductCardPr
           ) : null}
         </Link>
 
-        <div className="space-y-2.5 px-1 pt-3">
+        <div className="flex flex-1 flex-col space-y-2.5 px-1 pt-3">
           <Link
             href={`/products/${product.slug}`}
-            className="line-clamp-2 block text-base font-semibold leading-snug text-coal sm:text-lg"
+            className="line-clamp-2 block min-h-[3.5rem] text-base font-semibold leading-snug text-coal sm:text-lg"
           >
             {product.name}
           </Link>
@@ -64,39 +67,41 @@ export default function ProductCard({ product, mode = "default" }: ProductCardPr
             <p className="text-xl font-semibold leading-none text-coal sm:text-xl">{currency(currentPrice)}</p>
           </div>
 
-          {!showVariantPicker ? (
-            <button
-              onClick={() => setShowVariantPicker(true)}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-coal px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-black"
-            >
-              <ShoppingBag className="h-4 w-4" />
-              Quick Add
-            </button>
-          ) : (
-            <div className="space-y-2">
-              <select
-                defaultValue=""
-                onChange={(event) => handleVariantSelect(event.target.value)}
-                className="w-full rounded-full border border-black/20 bg-white px-4 py-2.5 text-sm text-coal outline-none"
-              >
-                <option value="" disabled>
-                  Select a variant
-                </option>
-                {product.variants.map((variant) => (
-                  <option key={variant.id} value={variant.id} disabled={variant.stock <= 0}>
-                    {variant.label}
-                    {variant.stock <= 0 ? " (Out of stock)" : ""}
-                  </option>
-                ))}
-              </select>
+          <div className="mt-auto">
+            {!showVariantPicker ? (
               <button
-                onClick={() => setShowVariantPicker(false)}
-                className="w-full text-xs font-medium text-gray-600 underline underline-offset-4"
+                onClick={() => setShowVariantPicker(true)}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-coal px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-black"
               >
-                Cancel
+                <ShoppingBag className="h-4 w-4" />
+                Quick Add
               </button>
-            </div>
-          )}
+            ) : (
+              <div className="space-y-2">
+                <select
+                  defaultValue=""
+                  onChange={(event) => handleVariantSelect(event.target.value)}
+                  className="w-full rounded-full border border-black/20 bg-white px-4 py-2.5 text-sm text-coal outline-none"
+                >
+                  <option value="" disabled>
+                    Select a variant
+                  </option>
+                  {product.variants.map((variant) => (
+                    <option key={variant.id} value={variant.id} disabled={variant.stock <= 0}>
+                      {variant.label}
+                      {variant.stock <= 0 ? " (Out of stock)" : ""}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => setShowVariantPicker(false)}
+                  className="w-full text-xs font-medium text-gray-600 underline underline-offset-4"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+          </div>
 
           {defaultVariantId && defaultVariantQty > 0 ? (
             <p className="text-center text-xs font-medium text-emerald-700">

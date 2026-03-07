@@ -22,7 +22,7 @@ export default function FeaturedProducts() {
             ))
           : displayItems.map((product, idx) => (
               <div key={product.id} className={idx === 3 ? "sm:hidden" : ""}>
-                <ProductCard product={product} />
+                <ProductCard product={product} mode="listing" />
               </div>
             ))}
       </div>
