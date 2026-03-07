@@ -119,7 +119,7 @@ export default function ProductsPage() {
   }, [priceBands.lowUpper, priceBands.midUpper, productStockMap, products, selectedSort, selectedAvailability, selectedPrice]);
 
   return (
-    <div className="pt-12 space-y-8">
+    <div className="space-y-8 pt-8 md:pt-12">
       <SectionHeader
         eyebrow="Shop Hair Systems"
         title="Premium collection for every lifestyle"
@@ -243,10 +243,12 @@ export default function ProductsPage() {
           ) : null}
         </div>
 
-        <div className="grid grid-cols-2 gap-4 sm:gap-5 xl:grid-cols-3">
-          {productsLoading
-            ? Array.from({ length: 6 }).map((_, idx) => <Skeleton key={idx} className="h-[360px]" />)
-            : filteredProducts.map((product) => <ProductCard key={product.id} product={product} />)}
+        <div className="rounded-3xl bg-[#ECECEC] p-3 sm:p-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-3">
+            {productsLoading
+              ? Array.from({ length: 6 }).map((_, idx) => <Skeleton key={idx} className="h-[360px]" />)
+              : filteredProducts.map((product) => <ProductCard key={product.id} product={product} mode="listing" />)}
+          </div>
         </div>
 
         {!productsLoading && productsError ? <p className="text-sm text-red-600">{productsError}</p> : null}

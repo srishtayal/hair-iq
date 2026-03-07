@@ -28,6 +28,10 @@ export default function Navbar() {
         Free Delivery |  <span className="text-champagne">10%</span> Off On Prepaid Orders
       </div>
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 md:px-6">
+        <button className="rounded-lg border border-graphite/20 p-2 text-coal md:hidden" onClick={() => setOpen((v) => !v)}>
+          {open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+        </button>
+
         <div className="hidden items-center gap-6 md:flex">
           {links.map((link) => {
             const protectedHref =
@@ -48,8 +52,8 @@ export default function Navbar() {
           })}
         </div>
 
-        <Link href="/" className="md:absolute md:left-1/2 md:-translate-x-1/2">
-          <Image src="/images/HairIQ-logo.png" alt="Hair IQ" width={140} height={40} className="object-contain" priority />
+        <Link href="/" className="absolute left-1/2 -translate-x-1/2 md:absolute md:left-1/2 md:-translate-x-1/2">
+          <Image src="/images/HairIQ-logo.png" alt="Hair IQ" width={120} height={34} className="object-contain md:w-[140px]" priority />
         </Link>
 
         <div className="hidden items-center gap-4 md:flex">
@@ -73,9 +77,23 @@ export default function Navbar() {
           </Link>
         </div>
 
-        <button className="rounded-lg border border-graphite/20 p-2 text-coal md:hidden" onClick={() => setOpen((v) => !v)}>
-          {open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-        </button>
+        <div className="flex items-center gap-2 md:hidden">
+          <Link
+            href={isAuthenticated ? "/wishlist" : authHref("/wishlist")}
+            className="relative rounded-full border border-black/15 p-2 text-smoke hover:text-coal"
+          >
+            <Heart className="h-4 w-4" />
+            {!!wishlist.length && (
+              <span className="absolute -right-1 -top-1 rounded-full bg-champagne px-1.5 text-[10px] font-bold text-coal">{wishlist.length}</span>
+            )}
+          </Link>
+          <Link href="/cart" className="relative rounded-full border border-black/15 p-2 text-smoke hover:text-coal">
+            <ShoppingBag className="h-4 w-4" />
+            {!!cartCount && (
+              <span className="absolute -right-1 -top-1 rounded-full bg-champagne px-1.5 text-[10px] font-bold text-coal">{cartCount}</span>
+            )}
+          </Link>
+        </div>
       </nav>
 
       <div className="overflow-hidden border-t border-black/10 bg-[#f8f0e6] py-2">
@@ -110,12 +128,6 @@ export default function Navbar() {
                 </Link>
               );
             })}
-            <Link href={isAuthenticated ? "/wishlist" : authHref("/wishlist")} onClick={() => setOpen(false)} className="text-sm text-smoke hover:text-coal">
-              Wishlist ({wishlist.length})
-            </Link>
-            <Link href="/cart" onClick={() => setOpen(false)} className="text-sm text-smoke hover:text-coal">
-              Cart ({cartCount})
-            </Link>
             <Link href={isAuthenticated ? "/profile" : authHref("/profile")} onClick={() => setOpen(false)} className="text-sm text-smoke hover:text-coal">
               Profile
             </Link>

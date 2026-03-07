@@ -386,12 +386,12 @@ export default function ProfilePage() {
         <motion.article
           key={order.id}
           whileHover={{ y: -2 }}
-          className="rounded-2xl border border-black/10 bg-white p-4 text-sm shadow-sm transition hover:border-black/20"
+          className="rounded-2xl border border-black/10 bg-white p-3 text-sm shadow-sm transition hover:border-black/20 sm:p-4"
         >
           <div className="flex items-start justify-between gap-3">
-            <div>
+            <div className="min-w-0">
               <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Order ID</p>
-              <p className="font-semibold text-coal">{order.id.slice(0, 8).toUpperCase()}</p>
+              <p className="truncate font-semibold text-coal">{order.id.slice(0, 8).toUpperCase()}</p>
             </div>
             <p className="text-xs text-gray-500">{formatOrderDate(order.createdAt)}</p>
           </div>
@@ -408,9 +408,9 @@ export default function ProfilePage() {
           <div className="mt-4 space-y-2 border-t border-black/10 pt-3">
             {order.items.length ? (
               order.items.map((item) => (
-                <div key={item.id} className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-medium text-coal">{item.product?.name || "Product"}</p>
+                <div key={item.id} className="flex flex-col items-start justify-between gap-2 sm:flex-row sm:gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-coal">{item.product?.name || "Product"}</p>
                     <p className="text-xs text-gray-600">
                       Qty {item.quantity}
                       {item.variant?.sku ? ` | SKU ${item.variant.sku}` : ""}
@@ -485,22 +485,22 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="space-y-8 pt-10 pb-6">
+    <div className="space-y-6 pb-5 pt-6 md:space-y-8 md:pb-6 md:pt-10">
       <SectionHeader eyebrow="My Account" title="Profile Dashboard" description="Manage your details, addresses, and past orders." />
 
       <motion.div
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, ease: "easeOut" }}
-        className="relative overflow-hidden rounded-3xl border border-black/10 bg-gradient-to-br from-white via-orange-50/70 to-white p-6 shadow-sm md:p-7"
+        className="relative overflow-hidden rounded-3xl border border-black/10 bg-gradient-to-br from-white via-orange-50/70 to-white p-4 shadow-sm sm:p-5 md:p-7"
       >
         <div className="pointer-events-none absolute -right-24 -top-20 h-52 w-52 rounded-full bg-amber-200/30 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-24 -left-16 h-44 w-44 rounded-full bg-champagne/35 blur-3xl" />
 
-        <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="relative z-[1] space-y-2">
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-gray-500">Account overview</p>
-            <h3 className="font-display text-2xl text-coal md:text-3xl">{profileDisplayName}</h3>
+            <h3 className="font-display text-xl text-coal sm:text-2xl md:text-3xl">{profileDisplayName}</h3>
             <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-gray-600">
               <p>{profilePhone || "Add your phone number"}</p>
               <p>{profileEmail || "Add an email for order updates"}</p>
@@ -516,23 +516,23 @@ export default function ProfilePage() {
           <button
             type="button"
             onClick={() => void logout()}
-            className="relative z-[1] h-fit rounded-full border border-black/20 bg-white px-4 py-2 text-sm font-semibold text-coal transition hover:bg-black hover:text-white"
+            className="relative z-[1] h-fit w-full rounded-full border border-black/20 bg-white px-4 py-2 text-sm font-semibold text-coal transition hover:bg-black hover:text-white sm:w-auto"
           >
             Log out
           </button>
         </div>
 
-        <div className="relative z-[1] mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl border border-black/10 bg-white/90 p-4">
+        <div className="relative z-[1] mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl border border-black/10 bg-white/90 p-3 sm:p-4">
             <p className="text-xs uppercase tracking-[0.18em] text-gray-500">Orders</p>
             <p className="mt-1 text-2xl font-semibold text-coal">{orders.length}</p>
           </div>
-          <div className="rounded-2xl border border-black/10 bg-white/90 p-4">
+          <div className="rounded-2xl border border-black/10 bg-white/90 p-3 sm:p-4">
             <p className="text-xs uppercase tracking-[0.18em] text-gray-500">Addresses</p>
             <p className="mt-1 text-2xl font-semibold text-coal">{addresses.length}</p>
             <p className="text-xs text-gray-500">{defaultAddress ? `${defaultAddress.city}, ${defaultAddress.state}` : "No default yet"}</p>
           </div>
-          <div className="rounded-2xl border border-black/10 bg-white/90 p-4">
+          <div className="col-span-2 rounded-2xl border border-black/10 bg-white/90 p-3 sm:col-span-1 sm:p-4">
             <p className="text-xs uppercase tracking-[0.18em] text-gray-500">Profile completion</p>
             <p className="mt-1 text-2xl font-semibold text-coal">{profileCompletion}%</p>
             <div className="mt-2 h-1.5 rounded-full bg-black/10">
@@ -548,7 +548,7 @@ export default function ProfilePage() {
       {error ? <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
       {loading ? <p className="text-sm text-gray-600">Loading profile...</p> : null}
 
-      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+      <div className="grid gap-4 md:gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <motion.section
           initial={{ opacity: 0, y: 14 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -556,7 +556,7 @@ export default function ProfilePage() {
           transition={{ duration: 0.35, ease: "easeOut" }}
           className="space-y-6"
         >
-          <div className="rounded-3xl border border-black/10 bg-white p-6 shadow-sm">
+          <div className="rounded-3xl border border-black/10 bg-white p-4 shadow-sm sm:p-5 md:p-6">
             <div className="space-y-1">
               <h3 className="font-semibold text-coal">Personal Details</h3>
               <p className="text-sm text-gray-600">Keep your essentials updated for faster checkout and delivery updates.</p>
@@ -602,7 +602,7 @@ export default function ProfilePage() {
             </form>
           </div>
 
-          <div className="rounded-3xl border border-black/10 bg-white p-6 shadow-sm">
+          <div className="rounded-3xl border border-black/10 bg-white p-4 shadow-sm sm:p-5 md:p-6">
             <div className="space-y-1">
               <h3 className="font-semibold text-coal">{editingAddressId ? "Edit Address" : "Add New Address"}</h3>
               <p className="text-sm text-gray-600">Manage shipping details once and reuse them in future orders.</p>
@@ -696,7 +696,7 @@ export default function ProfilePage() {
                 <button
                   type="submit"
                   disabled={savingAddress}
-                  className="flex-1 rounded-full bg-coal px-4 py-3 text-sm font-semibold text-white transition hover:bg-black disabled:opacity-60"
+                  className="w-full rounded-full bg-coal px-4 py-3 text-sm font-semibold text-white transition hover:bg-black disabled:opacity-60 sm:flex-1"
                 >
                   {savingAddress ? "Saving..." : editingAddressId ? "Update Address" : "Add Address"}
                 </button>
@@ -704,7 +704,7 @@ export default function ProfilePage() {
                   <button
                     type="button"
                     onClick={resetAddressForm}
-                    className="rounded-full border border-black/20 bg-white px-4 py-3 text-sm font-semibold text-coal transition hover:bg-gray-50"
+                    className="w-full rounded-full border border-black/20 bg-white px-4 py-3 text-sm font-semibold text-coal transition hover:bg-gray-50 sm:w-auto"
                   >
                     Cancel
                   </button>
@@ -721,14 +721,14 @@ export default function ProfilePage() {
           transition={{ duration: 0.35, ease: "easeOut", delay: 0.05 }}
           className="space-y-6"
         >
-          <div className="rounded-3xl border border-black/10 bg-white p-6 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="rounded-3xl border border-black/10 bg-white p-4 shadow-sm sm:p-5 md:p-6">
+            <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h3 className="font-semibold text-coal">Orders</h3>
-              <div className="inline-flex rounded-full border border-black/10 bg-gray-50 p-1">
+              <div className="flex w-full rounded-full border border-black/10 bg-gray-50 p-1 sm:inline-flex sm:w-auto">
                 <button
                   type="button"
                   onClick={() => setOrdersTab("active")}
-                  className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                  className={`flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition sm:flex-none ${
                     ordersTab === "active" ? "bg-coal text-white" : "text-gray-600 hover:text-coal"
                   }`}
                 >
@@ -737,7 +737,7 @@ export default function ProfilePage() {
                 <button
                   type="button"
                   onClick={() => setOrdersTab("past")}
-                  className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                  className={`flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition sm:flex-none ${
                     ordersTab === "past" ? "bg-coal text-white" : "text-gray-600 hover:text-coal"
                   }`}
                 >
@@ -748,7 +748,7 @@ export default function ProfilePage() {
             <div className="mt-4 space-y-3">{ordersTab === "active" ? orderCards.active : orderCards.past}</div>
           </div>
 
-          <div className="rounded-3xl border border-black/10 bg-white p-6 shadow-sm">
+          <div className="rounded-3xl border border-black/10 bg-white p-4 shadow-sm sm:p-5 md:p-6">
             <h3 className="font-semibold text-coal">Saved Addresses</h3>
             <div className="mt-4 space-y-3">
               {addresses.length ? (
@@ -770,7 +770,7 @@ export default function ProfilePage() {
                     <p className="text-gray-600">
                       {address.city}, {address.state} {address.pincode}
                     </p>
-                    <div className="mt-3 flex gap-2">
+                    <div className="mt-3 flex flex-wrap gap-2">
                       <button
                         type="button"
                         onClick={() => startEditAddress(address)}
