@@ -5,8 +5,8 @@ export default function AboutSection() {
     <section className="grid gap-8 md:grid-cols-2 md:gap-10">
       <SectionHeader
         eyebrow="About Hair IQ"
-        title="India&apos;s largest wholesale hair patch manufacturer, now delivering directly to your doorstep"
-        description="At Hair IQ, we&apos;ve been part of the hair patch industry for a long time and became India&apos;s largest wholesale manufacturer."
+        title="India&apos;s largest hair patch wholesaler, now delivering directly to your doorstep"
+        description="At Hair IQ, we&apos;ve been part of the hair patch industry for a long time and are India&apos;s largest trader."
       />
       <div className="space-y-5 text-sm text-gray-600 md:text-base">
         <p>
