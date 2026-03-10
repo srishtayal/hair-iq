@@ -117,6 +117,48 @@ const isPastOrderStatus = (status: string) => {
 
 const accountPerks = ["Priority Support", "Fast Reorders", "Secure Checkout"];
 
+const normalizeAddress = (address: AddressRecord) =>
+  [
+    address.fullName,
+    address.phone,
+    address.addressLine1,
+    address.addressLine2 || "",
+    address.city,
+    address.state,
+    address.pincode,
+  ]
+    .map((part) => part.trim().toLowerCase())
+    .join("|");
+
+const dedupeAddresses = (addresses: AddressRecord[]) => {
+  const unique: AddressRecord[] = [];
+  const seen = new Set<string>();
+  for (const address of addresses) {
+    const key = normalizeAddress(address);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(address);
+  }
+  return unique;
+};
+
+const mapProfileError = (message: string) => {
+  const normalized = message.toLowerCase();
+  if (normalized.includes("mobile number cannot be changed")) {
+    return "Mobile number is locked to your login and cannot be changed from profile.";
+  }
+  if (normalized.includes("already saved")) {
+    return "This address is already saved. Please edit the existing one instead.";
+  }
+  if (normalized.includes("missing required fields")) {
+    return "Please fill all required address fields before saving.";
+  }
+  if (normalized.includes("unauthorized") || normalized.includes("login")) {
+    return "Your session expired. Please login again.";
+  }
+  return message;
+};
+
 export default function ProfilePage() {
   const { logout, user, authReady, isAuthenticated, goToAuth, addToCart } = useStore();
   const router = useRouter();
@@ -214,10 +256,10 @@ export default function ProfilePage() {
       });
 
       setOrders(mergedOrders);
-      setAddresses(addressesResponse.data);
+      setAddresses(dedupeAddresses(addressesResponse.data));
     } catch (loadError) {
       const message = loadError instanceof Error ? loadError.message : "Unable to load profile details";
-      setError(message);
+      setError(mapProfileError(message));
     } finally {
       setLoading(false);
     }
@@ -231,8 +273,8 @@ export default function ProfilePage() {
     event.preventDefault();
     setError("");
 
-    if (!profileName.trim() || !profilePhone.trim()) {
-      setError("Name and phone are required.");
+    if (!profileName.trim()) {
+      setError("Please enter your full name.");
       return;
     }
 
@@ -256,7 +298,6 @@ export default function ProfilePage() {
           method: "PUT",
           body: JSON.stringify({
             name: profileName.trim(),
-            phone: profilePhone.trim(),
             email: profileEmail.trim() || null,
           }),
         },
@@ -268,7 +309,7 @@ export default function ProfilePage() {
       applyUserToForm(response.data.user);
     } catch (saveError) {
       const message = saveError instanceof Error ? saveError.message : "Failed to save profile";
-      setError(message);
+      setError(mapProfileError(message));
     } finally {
       setSavingProfile(false);
     }
@@ -283,7 +324,7 @@ export default function ProfilePage() {
     setEditingAddressId(address.id);
     setAddressForm({
       fullName: address.fullName,
-      phone: address.phone,
+      phone: profilePhone || address.phone,
       addressLine1: address.addressLine1,
       addressLine2: address.addressLine2 || "",
       city: address.city,
@@ -297,9 +338,11 @@ export default function ProfilePage() {
     event.preventDefault();
     setError("");
 
+    const lockedPhone = profilePhone.trim();
+
     if (
       !addressForm.fullName.trim() ||
-      !addressForm.phone.trim() ||
+      !lockedPhone ||
       !addressForm.addressLine1.trim() ||
       !addressForm.city.trim() ||
       !addressForm.state.trim() ||
@@ -319,7 +362,7 @@ export default function ProfilePage() {
 
       const payload = {
         fullName: addressForm.fullName.trim(),
-        phone: addressForm.phone.trim(),
+        phone: lockedPhone,
         addressLine1: addressForm.addressLine1.trim(),
         addressLine2: addressForm.addressLine2.trim() || null,
         city: addressForm.city.trim(),
@@ -341,11 +384,11 @@ export default function ProfilePage() {
       }
 
       const latestAddresses = await apiRequest<{ success: true; data: AddressRecord[] }>("/addresses", { method: "GET" }, token);
-      setAddresses(latestAddresses.data);
+      setAddresses(dedupeAddresses(latestAddresses.data));
       resetAddressForm();
     } catch (addressError) {
       const message = addressError instanceof Error ? addressError.message : "Failed to save address";
-      setError(message);
+      setError(mapProfileError(message));
     } finally {
       setSavingAddress(false);
     }
@@ -370,7 +413,7 @@ export default function ProfilePage() {
       }
     } catch (addressError) {
       const message = addressError instanceof Error ? addressError.message : "Failed to delete address";
-      setError(message);
+      setError(mapProfileError(message));
     } finally {
       setDeletingAddressId(null);
     }
@@ -610,10 +653,11 @@ export default function ProfilePage() {
                 <input
                   type="tel"
                   value={profilePhone}
-                  onChange={(event) => setProfilePhone(event.target.value)}
-                  className={inputClassName}
-                  placeholder="Enter phone number"
+                  readOnly
+                  className={`${inputClassName} cursor-not-allowed bg-gray-100`}
+                  placeholder="Mobile number linked to your login"
                 />
+                <p className="text-xs text-gray-500">Mobile number is locked to your login and cannot be changed here.</p>
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">Email (optional)</label>
@@ -656,11 +700,12 @@ export default function ProfilePage() {
                   <label className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">Phone</label>
                   <input
                     type="tel"
-                    value={addressForm.phone}
-                    onChange={(event) => setAddressForm((prev) => ({ ...prev, phone: event.target.value }))}
-                    className={inputClassName}
-                    placeholder="Contact number"
+                    value={profilePhone}
+                    readOnly
+                    className={`${inputClassName} cursor-not-allowed bg-gray-100`}
+                    placeholder="Mobile number linked to your account"
                   />
+                  <p className="text-xs text-gray-500">This number is auto-used from your login.</p>
                 </div>
               </div>
               <div className="space-y-1.5">

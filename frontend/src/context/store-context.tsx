@@ -27,6 +27,9 @@ type StoreContextType = {
   cartCount: number;
   cartSubtotal: number;
   getCartProduct: (item: CartItemType) => Product | undefined;
+  isSideCartOpen: boolean;
+  sideCartItem: CartItemType | null;
+  closeSideCart: () => void;
   user: User | null;
   authReady: boolean;
   isAuthenticated: boolean;
@@ -72,6 +75,8 @@ export const StoreProvider = ({ children }: { children: React.ReactNode }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsError, setProductsError] = useState<string | null>(null);
+  const [isSideCartOpen, setIsSideCartOpen] = useState(false);
+  const [lastAddedCartItemId, setLastAddedCartItemId] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
 
@@ -197,6 +202,9 @@ export const StoreProvider = ({ children }: { children: React.ReactNode }) => {
 
     const selectedVariant = variantId ?? product.variants[0]?.id;
     if (!selectedVariant) return;
+    const itemId = `${productId}-${selectedVariant}`;
+    setLastAddedCartItemId(itemId);
+    setIsSideCartOpen(true);
 
     setCartItems((prev) => {
       const existing = prev.find((item) => item.productId === productId && item.variantId === selectedVariant);
@@ -209,7 +217,7 @@ export const StoreProvider = ({ children }: { children: React.ReactNode }) => {
       return [
         ...prev,
         {
-          itemId: `${productId}-${selectedVariant}`,
+          itemId,
           productId,
           variantId: selectedVariant,
           quantity: 1
@@ -258,6 +266,7 @@ export const StoreProvider = ({ children }: { children: React.ReactNode }) => {
 
   const removeFromCart = (itemId: string) => setCartItems((prev) => prev.filter((item) => item.itemId !== itemId));
   const clearCart = () => setCartItems([]);
+  const closeSideCart = () => setIsSideCartOpen(false);
 
   const toggleWishlist = (productId: string) => {
     if (!ensureAuthenticated("/wishlist")) {
@@ -287,6 +296,10 @@ export const StoreProvider = ({ children }: { children: React.ReactNode }) => {
   );
 
   const getCartProduct = (item: CartItemType) => products.find((p) => p.id === item.productId);
+  const sideCartItem = useMemo(
+    () => cartItems.find((item) => item.itemId === lastAddedCartItemId) ?? null,
+    [cartItems, lastAddedCartItemId]
+  );
 
   const logout = async () => {
     if (auth) {
@@ -353,6 +366,9 @@ export const StoreProvider = ({ children }: { children: React.ReactNode }) => {
         cartCount,
         cartSubtotal: cartItems.length ? cartSubtotal + shippingFee : 0,
         getCartProduct,
+        isSideCartOpen,
+        sideCartItem,
+        closeSideCart,
         user,
         authReady,
         isAuthenticated: !!user,

@@ -4,6 +4,7 @@ import { apiRequest } from "@/lib/api";
 import { currency } from "@/lib/utils";
 import SectionHeader from "@/components/common/section-header";
 import { useStore } from "@/context/store-context";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 const SERVER_USER_KEY = "hairiq_server_user";
@@ -153,11 +154,9 @@ const buildTimeline = (order: TrackingOrder): TimelineStep[] => {
           ? formatDateTime(order.createdAt)
           : isCurrent
             ? formatDateTime(order.updatedAt || order.createdAt)
-            : isComplete
-              ? "Completed"
-              : "Pending",
+            : "Completed",
     };
-  });
+  }).filter((step) => step.complete);
 
   if (normalizedStatus === "cancelled") {
     timeline.push({
@@ -183,6 +182,8 @@ const buildTimeline = (order: TrackingOrder): TimelineStep[] => {
 };
 
 export default function TrackingPage() {
+  const searchParams = useSearchParams();
+  const preferredOrderId = searchParams.get("order") || "";
   const { authReady, isAuthenticated, goToAuth, user } = useStore();
   const [orders, setOrders] = useState<TrackingOrder[]>([]);
   const [selectedOrderId, setSelectedOrderId] = useState<string>("");
@@ -246,7 +247,12 @@ export default function TrackingPage() {
 
       const nextOrders = ordersResponse.data || [];
       setOrders(nextOrders);
-      setSelectedOrderId((prev) => prev || nextOrders[0]?.id || "");
+      setSelectedOrderId((prev) => {
+        if (preferredOrderId && nextOrders.some((order) => order.id === preferredOrderId)) {
+          return preferredOrderId;
+        }
+        return prev || nextOrders[0]?.id || "";
+      });
       setIsAdmin(meResponse.data.user.role === "admin");
 
       if (meResponse.data.user.role === "admin") {
@@ -275,7 +281,7 @@ export default function TrackingPage() {
     } finally {
       setLoading(false);
     }
-  }, [authReady, ensureServerToken, isAuthenticated]);
+  }, [authReady, ensureServerToken, isAuthenticated, preferredOrderId]);
 
   useEffect(() => {
     const cachedUser = localStorage.getItem(SERVER_USER_KEY);

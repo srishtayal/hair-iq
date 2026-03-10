@@ -408,7 +408,10 @@ export default function ProductDetailPage() {
           <div className="min-w-0 space-y-6">
             <p className="text-xs uppercase tracking-[0.2em] text-champagne">{resolvedProduct.category}</p>
             <h1 className="font-display text-4xl text-coal">{resolvedProduct.name}</h1>
-            <RatingStars rating={resolvedProduct.rating} />
+            <div className="flex items-center gap-2">
+              <RatingStars rating={resolvedProduct.rating} />
+              <span className="text-xs text-gray-600">({resolvedProduct.reviewCount})</span>
+            </div>
 
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Product Info</p>
@@ -457,9 +460,15 @@ export default function ProductDetailPage() {
               className="w-full rounded-2xl border border-emerald-500/35 bg-emerald-50 p-4 text-left transition hover:bg-emerald-100/70"
               aria-label="Play open delivery policy video"
             >
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-emerald-700">Open Delivery</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-emerald-700">Open Delivery: CLICK ME!</p>
               <p className="mt-1 text-sm font-semibold text-emerald-900">Inspect the product at delivery before accepting it.</p>
             </button>
+            {/* <Link
+              href="#open-delivery-tab"
+              className="inline-flex rounded-full border border-black/20 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-coal transition hover:bg-gray-50"
+            >
+              Open Delivery Tab - Click Me
+            </Link> */}
             <div className="flex flex-wrap gap-3">
               {selectedVariantId && selectedVariantQty > 0 ? (
                 <div className="flex items-center gap-2 rounded-full border border-black/20 bg-white px-2 py-1">
@@ -529,7 +538,7 @@ export default function ProductDetailPage() {
           </div>
         </section>
 
-        <section className="space-y-5 rounded-3xl border border-white/10 bg-white/5 p-6 md:p-8">
+        <section id="open-delivery-tab" className="space-y-5 rounded-3xl border border-white/10 bg-white/5 p-6 md:p-8">
           <SectionHeader eyebrow="Policy" title="Open Delivery Policy" />
 
           <div className="space-y-3 text-sm text-gray-700 md:text-base">

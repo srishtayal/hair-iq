@@ -8,6 +8,17 @@ const createError = (message, statusCode = 400) => {
 
 const requiredFields = ['fullName', 'phone', 'addressLine1', 'city', 'state', 'pincode'];
 
+const normalize = (value) => String(value || '').trim().toLowerCase();
+
+const isSameAddress = (existing, payload) =>
+  normalize(existing.fullName) === normalize(payload.fullName)
+  && normalize(existing.phone) === normalize(payload.phone)
+  && normalize(existing.addressLine1) === normalize(payload.addressLine1)
+  && normalize(existing.addressLine2) === normalize(payload.addressLine2)
+  && normalize(existing.city) === normalize(payload.city)
+  && normalize(existing.state) === normalize(payload.state)
+  && normalize(existing.pincode) === normalize(payload.pincode);
+
 const validateAddressPayload = (payload, partial = false) => {
   if (!partial) {
     const missing = requiredFields.filter((key) => !payload[key]);
@@ -24,6 +35,17 @@ const unsetDefaultForUser = async (userId, excludeId) => {
 
 const createAddress = async (userId, payload) => {
   validateAddressPayload(payload);
+
+  const existingAddresses = await Address.findAll({ where: { userId } });
+  const duplicate = existingAddresses.find((address) => isSameAddress(address, payload));
+
+  if (duplicate) {
+    if (payload.isDefault && !duplicate.isDefault) {
+      await unsetDefaultForUser(userId, duplicate.id);
+      await duplicate.update({ isDefault: true });
+    }
+    return duplicate;
+  }
 
   if (payload.isDefault) {
     await unsetDefaultForUser(userId);
@@ -60,11 +82,7 @@ const updateAddress = async (userId, id, payload) => {
     throw createError('Address not found', 404);
   }
 
-  if (payload.isDefault) {
-    await unsetDefaultForUser(userId, id);
-  }
-
-  await address.update({
+  const nextValues = {
     fullName: payload.fullName !== undefined ? payload.fullName : address.fullName,
     phone: payload.phone !== undefined ? payload.phone : address.phone,
     addressLine1: payload.addressLine1 !== undefined ? payload.addressLine1 : address.addressLine1,
@@ -73,7 +91,19 @@ const updateAddress = async (userId, id, payload) => {
     state: payload.state !== undefined ? payload.state : address.state,
     pincode: payload.pincode !== undefined ? payload.pincode : address.pincode,
     isDefault: payload.isDefault !== undefined ? !!payload.isDefault : address.isDefault,
-  });
+  };
+
+  const existingAddresses = await Address.findAll({ where: { userId } });
+  const duplicate = existingAddresses.find((candidate) => candidate.id !== id && isSameAddress(candidate, nextValues));
+  if (duplicate) {
+    throw createError('This address is already saved.', 409);
+  }
+
+  if (payload.isDefault) {
+    await unsetDefaultForUser(userId, id);
+  }
+
+  await address.update(nextValues);
 
   return address;
 };

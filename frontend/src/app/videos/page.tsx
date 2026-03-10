@@ -3,70 +3,23 @@
 import EmptyState from "@/components/common/empty-state";
 import SectionHeader from "@/components/common/section-header";
 import VideoCard from "@/components/video/video-card";
+import VideoModal from "@/components/video/video-modal";
 import { videos } from "@/data/videos";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 export default function VideosPage() {
   const [category, setCategory] = useState("All");
-  const [isTouchDevice, setIsTouchDevice] = useState(false);
-  const [visibilityRatios, setVisibilityRatios] = useState<Record<string, number>>({});
-  const [autoPreviewVideoId, setAutoPreviewVideoId] = useState<string | null>(null);
+  const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
 
-  const categories = ["All", "Informative", "Product", "Transformations"];
+  const categories = useMemo(() => ["All", ...Array.from(new Set(videos.map((video) => video.category)))], []);
   const filteredVideos = useMemo(
     () => (category === "All" ? videos : videos.filter((video) => video.category === category)),
     [category]
   );
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const pointerQuery = window.matchMedia("(pointer: coarse)");
-    const updateTouchState = () => {
-      setIsTouchDevice(pointerQuery.matches || navigator.maxTouchPoints > 0);
-    };
-
-    updateTouchState();
-    pointerQuery.addEventListener("change", updateTouchState);
-
-    return () => {
-      pointerQuery.removeEventListener("change", updateTouchState);
-    };
-  }, []);
-
-  const handleVisibilityChange = useCallback((videoId: string, ratio: number) => {
-    setVisibilityRatios((previous) => {
-      if ((previous[videoId] ?? 0) === ratio) return previous;
-      return { ...previous, [videoId]: ratio };
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!isTouchDevice) {
-      setAutoPreviewVideoId(null);
-      return;
-    }
-
-    const minFocusRatio = 0.55;
-    const focusedEntries = Object.entries(visibilityRatios).filter(([, ratio]) => ratio >= minFocusRatio);
-
-    if (!focusedEntries.length) {
-      setAutoPreviewVideoId(null);
-      return;
-    }
-
-    focusedEntries.sort((a, b) => b[1] - a[1]);
-    const [topId, topRatio] = focusedEntries[0];
-
-    setAutoPreviewVideoId((currentId) => {
-      if (!currentId) return topId;
-      const currentRatio = visibilityRatios[currentId] ?? 0;
-      if (currentRatio >= minFocusRatio && currentRatio + 0.05 >= topRatio) {
-        return currentId;
-      }
-      return topId;
-    });
-  }, [isTouchDevice, visibilityRatios]);
+  const selectedVideo = useMemo(
+    () => videos.find((video) => video.id === selectedVideoId) ?? null,
+    [selectedVideoId]
+  );
 
   return (
     <div className="pt-12 space-y-8">
@@ -96,9 +49,9 @@ export default function VideosPage() {
             <VideoCard
               key={video.id}
               video={video}
-              autoPreviewEnabled={isTouchDevice}
-              isAutoFocused={autoPreviewVideoId === video.id}
-              onVisibilityChange={handleVisibilityChange}
+              hoverPreviewEnabled={false}
+              autoPreviewEnabled={false}
+              onClick={() => setSelectedVideoId(video.id)}
             />
           ))}
         </div>
@@ -110,6 +63,13 @@ export default function VideosPage() {
           ctaHref="/videos"
         />
       )}
+
+      <VideoModal
+        open={!!selectedVideo}
+        onClose={() => setSelectedVideoId(null)}
+        embedUrl={selectedVideo?.embedUrl || ""}
+        title={selectedVideo?.title || "Video"}
+      />
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { apiRequest } from "@/lib/api";
 import { currency } from "@/lib/utils";
 import { BadgeCheck, ShieldCheck, Truck } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 type RazorpayOrderResponse = {
@@ -109,16 +110,65 @@ type SavedAddress = {
   isDefault: boolean;
 };
 
-type OrderPlacedPopup = {
-  title: string;
-  message: string;
-  orderId?: string;
-  amount?: number;
-};
-
 const PINCODE_REGEX = /^\d{6}$/;
 const LOCAL_ORDER_HISTORY_KEY = "hairiq_local_orders";
 const MANUAL_ADDRESS_ID = "__manual_address__";
+const SERVER_USER_KEY = "hairiq_server_user";
+
+const FIELD_LABELS: Record<keyof CodCustomerDetails, string> = {
+  fullName: "full name",
+  phone: "mobile number",
+  addressLine1: "address line 1",
+  addressLine2: "address line 2",
+  city: "city",
+  state: "state",
+  pincode: "pincode",
+};
+
+const mapCheckoutErrorMessage = (message: string) => {
+  const normalized = message.toLowerCase();
+  if (normalized.includes("phone") || normalized.includes("mobile")) {
+    return "Please use a valid 10-digit mobile number linked to your account.";
+  }
+  if (normalized.includes("pincode")) {
+    return "Please check your 6-digit pincode and try again.";
+  }
+  if (normalized.includes("login") || normalized.includes("unauthorized")) {
+    return "Your session expired. Please login and place the order again.";
+  }
+  if (normalized.includes("missing required fields") || normalized.includes("please complete:")) {
+    return `Please fill all required details before placing the order. (${message})`;
+  }
+  if (normalized.includes("coming soon")) {
+    return "COD is not available on this pincode yet. Please choose online payment.";
+  }
+  return message;
+};
+
+const normalizeAddress = (address: SavedAddress) =>
+  [
+    address.fullName,
+    address.phone,
+    address.addressLine1,
+    address.addressLine2 || "",
+    address.city,
+    address.state,
+    address.pincode,
+  ]
+    .map((part) => part.trim().toLowerCase())
+    .join("|");
+
+const dedupeAddresses = (addresses: SavedAddress[]) => {
+  const unique: SavedAddress[] = [];
+  const seen = new Set<string>();
+  for (const address of addresses) {
+    const key = normalizeAddress(address);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(address);
+  }
+  return unique;
+};
 
 const sanitizeCsvCell = (value: string) => value.replace(/^"|"$/g, "").trim();
 
@@ -195,12 +245,12 @@ const loadRazorpayScript = async () => {
 };
 
 export default function CartPage() {
+  const router = useRouter();
   const { cartItems, cartSubtotal, isAuthenticated, goToAuth, user, clearCart, getCartProduct } = useStore();
   const subtotal = cartSubtotal;
   const [isProcessing, setIsProcessing] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkoutSuccess, setCheckoutSuccess] = useState<string | null>(null);
-  const [orderPlacedPopup, setOrderPlacedPopup] = useState<OrderPlacedPopup | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("online");
   const [codDetails, setCodDetails] = useState<CodCustomerDetails>({
     fullName: "",
@@ -218,14 +268,35 @@ export default function CartPage() {
   const [selectedAddressId, setSelectedAddressId] = useState<string>(MANUAL_ADDRESS_ID);
   const [addressesLoading, setAddressesLoading] = useState(false);
   const [addressesError, setAddressesError] = useState("");
+  const [accountPhone, setAccountPhone] = useState("");
+
+  useEffect(() => {
+    const fromAuth = user?.phoneNumber?.replace(/\D/g, "").slice(-10) || "";
+    if (fromAuth) {
+      setAccountPhone(fromAuth);
+      return;
+    }
+
+    try {
+      const raw = localStorage.getItem(SERVER_USER_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as { phone?: string };
+      const fromServer = String(parsed?.phone || "").replace(/\D/g, "").slice(-10);
+      if (fromServer) {
+        setAccountPhone(fromServer);
+      }
+    } catch {
+      // Ignore cache parsing issues.
+    }
+  }, [user]);
 
   useEffect(() => {
     setCodDetails((prev) => ({
       ...prev,
       fullName: prev.fullName || user?.displayName || "",
-      phone: prev.phone || user?.phoneNumber || "",
+      phone: accountPhone || prev.phone || user?.phoneNumber || "",
     }));
-  }, [user]);
+  }, [accountPhone, user]);
 
   useEffect(() => {
     let active = true;
@@ -298,7 +369,7 @@ export default function CartPage() {
         const response = await apiRequest<{ success: true; data: SavedAddress[] }>("/addresses", { method: "GET" }, token);
         if (!active) return;
 
-        const addresses = response.data;
+        const addresses = dedupeAddresses(response.data);
         setSavedAddresses(addresses);
 
         if (!addresses.length) {
@@ -336,12 +407,19 @@ export default function CartPage() {
   );
 
   const effectiveCodDetails = useMemo(() => {
+    const lockedPhone = accountPhone || codDetails.phone;
     if (selectedSavedAddress) {
-      return toCodCustomerDetails(selectedSavedAddress);
+      return {
+        ...toCodCustomerDetails(selectedSavedAddress),
+        phone: lockedPhone || selectedSavedAddress.phone,
+      };
     }
 
-    return codDetails;
-  }, [codDetails, selectedSavedAddress]);
+    return {
+      ...codDetails,
+      phone: lockedPhone || codDetails.phone,
+    };
+  }, [accountPhone, codDetails, selectedSavedAddress]);
 
   const normalizedCodPincode = useMemo(
     () => effectiveCodDetails.pincode.replace(/\D/g, "").slice(0, 6),
@@ -380,7 +458,7 @@ export default function CartPage() {
 
     const missing = requiredFields.filter((field) => !details[field].trim());
     if (missing.length) {
-      throw new Error(`Please fill: ${missing.join(", ")}`);
+      throw new Error(`Please complete: ${missing.map((field) => FIELD_LABELS[field]).join(", ")}`);
     }
 
     const normalizedPhone = details.phone.replace(/\D/g, "");
@@ -533,12 +611,7 @@ export default function CartPage() {
             orderStatus: "confirmed",
           });
           setCheckoutSuccess("Payment verified successfully.");
-          setOrderPlacedPopup({
-            title: "Order placed successfully",
-            message: "Your online payment is confirmed. We will process your order shortly.",
-            orderId: paymentResponse.razorpay_order_id,
-            amount: cartSubtotal,
-          });
+          router.push(`/order-tracking?order=${encodeURIComponent(paymentResponse.razorpay_order_id)}`);
           setIsProcessing(false);
         },
         modal: {
@@ -556,7 +629,10 @@ export default function CartPage() {
   };
 
   const handleCodCheckout = async () => {
-    const customerDetails = effectiveCodDetails;
+    const customerDetails = {
+      ...effectiveCodDetails,
+      phone: accountPhone || effectiveCodDetails.phone,
+    };
     validateCodDetails(customerDetails);
     if (!isCodServiceable) {
       throw new Error("Coming soon to your location!");
@@ -587,13 +663,8 @@ export default function CartPage() {
       paymentStatus: "COD_PENDING",
       orderStatus: "COD_PENDING",
     });
-    setCheckoutSuccess(`COD order placed. Order ID: ${codResponse.data.orderId}. Status: COD_PENDING`);
-    setOrderPlacedPopup({
-      title: "Order placed successfully",
-      message: "Your COD order has been placed.",
-      orderId: codResponse.data.orderId,
-      amount: codResponse.data.totalAmount,
-    });
+    setCheckoutSuccess(`COD order placed. Order ID: ${codResponse.data.orderId}.`);
+    router.push(`/order-tracking?order=${encodeURIComponent(codResponse.data.orderId)}`);
     setIsProcessing(false);
   };
 
@@ -617,7 +688,10 @@ export default function CartPage() {
     }
 
     if (selectedAddressId === MANUAL_ADDRESS_ID) {
-      validateCodDetails(codDetails);
+      validateCodDetails({
+        ...codDetails,
+        phone: accountPhone || codDetails.phone,
+      });
     }
 
     if (isProcessing) return;
@@ -632,7 +706,7 @@ export default function CartPage() {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to start checkout";
-      setCheckoutError(message);
+      setCheckoutError(mapCheckoutErrorMessage(message));
       setIsProcessing(false);
     }
   };
@@ -748,11 +822,15 @@ export default function CartPage() {
                     <input
                       type="text"
                       value={codDetails.phone}
-                      onChange={(event) => setCodDetails((prev) => ({ ...prev, phone: event.target.value }))}
+                      onChange={(event) =>
+                        setCodDetails((prev) => ({ ...prev, phone: event.target.value.replace(/\D/g, "").slice(0, 10) }))
+                      }
                       placeholder="Phone number"
-                      className="w-full rounded-lg border border-black/15 px-3 py-2 text-sm text-coal outline-none focus:border-coal"
+                      disabled
+                      className="w-full cursor-not-allowed rounded-lg border border-black/15 bg-gray-100 px-3 py-2 text-sm text-coal outline-none"
                     />
                   </div>
+                  <p className="text-xs text-gray-500">Mobile number is locked to your logged-in account.</p>
                   <input
                     type="text"
                     value={codDetails.addressLine1}
@@ -801,11 +879,7 @@ export default function CartPage() {
               <div className="mt-4 space-y-2 text-sm">
                 <div className="flex justify-between text-gray-700">
                   <span>Total MRP</span>
-                  <span>{currency(subtotal + 200)}</span>
-                </div>
-                <div className="flex justify-between text-gray-700">
-                  <span>Discount</span>
-                  <span className="text-emerald-700">-{currency(200)}</span>
+                  <span>{currency(subtotal)}</span>
                 </div>
                 <div className="flex justify-between text-gray-700">
                   <span>Delivery Charges</span>
@@ -886,8 +960,12 @@ export default function CartPage() {
                   ? "Continue To Payment"
                   : "Place COD Order"}
             </button>
-            {checkoutError ? <p className="text-sm text-red-700">{checkoutError}</p> : null}
-            {checkoutSuccess ? <p className="text-sm text-green-700">{checkoutSuccess}</p> : null}
+            {checkoutError ? (
+              <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{checkoutError}</p>
+            ) : null}
+            {checkoutSuccess ? (
+              <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{checkoutSuccess}</p>
+            ) : null}
           </aside>
         </div>
       )}
@@ -916,29 +994,6 @@ export default function CartPage() {
         </div>
       ) : null}
 
-      {orderPlacedPopup ? (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 px-4">
-          <div className="w-full max-w-md rounded-2xl border border-black/15 bg-white p-6 shadow-2xl">
-            <h3 className="text-xl font-semibold text-coal">{orderPlacedPopup.title}</h3>
-            <p className="mt-2 text-sm text-gray-600">{orderPlacedPopup.message}</p>
-            {orderPlacedPopup.orderId ? (
-              <p className="mt-3 rounded-lg bg-orange-50 px-3 py-2 text-sm font-semibold text-coal">
-                Order ID: {orderPlacedPopup.orderId.slice(0, 8).toUpperCase()}
-              </p>
-            ) : null}
-            {typeof orderPlacedPopup.amount === "number" ? (
-              <p className="mt-2 text-sm text-gray-700">Amount: {currency(orderPlacedPopup.amount)}</p>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => setOrderPlacedPopup(null)}
-              className="mt-5 w-full rounded-full bg-coal px-4 py-3 text-sm font-semibold text-white hover:bg-black"
-            >
-              OK
-            </button>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

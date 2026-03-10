@@ -14,9 +14,9 @@ export default function OpenDeliveryPolicy() {
         <button
           type="button"
           onClick={() => setIsVideoOpen(true)}
-          className="text-sm font-semibold text-coal underline decoration-champagne underline-offset-4 transition hover:text-black"
+          className="rounded-full border border-black/20 bg-white px-4 py-2 text-sm font-semibold text-coal transition hover:bg-gray-50"
         >
-          Click here to understand Open Delivery
+          Open Delivery Tab - Click Me
         </button>
       </div>
 

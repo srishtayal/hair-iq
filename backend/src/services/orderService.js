@@ -436,12 +436,12 @@ const validateCodCustomerDetails = (details = {}) => {
   const missing = requiredFields.filter((field) => !String(details[field] || '').trim());
 
   if (missing.length) {
-    throw createError(`Missing required fields: ${missing.join(', ')}`, 400);
+    throw createError(`Please complete: ${missing.join(', ')}`, 400);
   }
 
   const normalizedPhone = String(details.phone).replace(/\D/g, '');
   if (normalizedPhone.length < 10) {
-    throw createError('phone must contain at least 10 digits', 400);
+    throw createError('Please enter a valid 10-digit mobile number', 400);
   }
 
   return {
@@ -726,7 +726,22 @@ const createCodOrder = async ({ userId, items, customerDetails }) => {
     throw createError('Unauthorized', 401);
   }
 
-  const validatedCustomer = validateCodCustomerDetails(customerDetails);
+  const accountUser = await User.findByPk(userId, {
+    attributes: ['id', 'phone'],
+  });
+  if (!accountUser) {
+    throw createError('Unable to find your account. Please login again.', 401);
+  }
+
+  const lockedPhone = String(accountUser.phone || '').trim();
+  if (!lockedPhone) {
+    throw createError('Mobile number is missing on your account. Please login again.', 400);
+  }
+
+  const validatedCustomer = validateCodCustomerDetails({
+    ...customerDetails,
+    phone: lockedPhone,
+  });
   await validateCodPincodeServiceability(validatedCustomer.pincode);
   const shippingAmount = toInt(process.env.DEFAULT_SHIPPING_AMOUNT, 0);
 

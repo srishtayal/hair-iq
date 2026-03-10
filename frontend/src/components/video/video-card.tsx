@@ -11,6 +11,8 @@ type VideoCardProps = {
   isAutoFocused?: boolean;
   onVisibilityChange?: (videoId: string, ratio: number) => void;
   uniformHeight?: boolean;
+  hoverPreviewEnabled?: boolean;
+  onClick?: () => void;
 };
 
 export default function VideoCard({
@@ -18,14 +20,16 @@ export default function VideoCard({
   autoPreviewEnabled = false,
   isAutoFocused = false,
   onVisibilityChange,
-  uniformHeight = false
+  uniformHeight = false,
+  hoverPreviewEnabled = true,
+  onClick
 }: VideoCardProps) {
   const [isPointerHovering, setIsPointerHovering] = useState(false);
   const cardRef = useRef<HTMLElement | null>(null);
   const previewRef = useRef<HTMLVideoElement | null>(null);
 
   const canPreviewInline = /\.(mp4|webm|ogg)(\?|$)/i.test(video.embedUrl);
-  const shouldPreview = isPointerHovering || (autoPreviewEnabled && isAutoFocused);
+  const shouldPreview = (hoverPreviewEnabled && isPointerHovering) || (autoPreviewEnabled && isAutoFocused);
 
   const playPreview = (preferAudio: boolean) => {
     const media = previewRef.current;
@@ -90,13 +94,13 @@ export default function VideoCard({
   }, [shouldPreview]);
 
   const handlePointerEnter = (pointerType: string) => {
-    if (!canPreviewInline || pointerType !== "mouse") return;
+    if (!hoverPreviewEnabled || !canPreviewInline || pointerType !== "mouse") return;
     setIsPointerHovering(true);
     playPreview(true);
   };
 
   const handlePointerLeave = (pointerType: string) => {
-    if (!canPreviewInline || pointerType !== "mouse") return;
+    if (!hoverPreviewEnabled || !canPreviewInline || pointerType !== "mouse") return;
     setIsPointerHovering(false);
   };
 
@@ -107,6 +111,7 @@ export default function VideoCard({
       className="group flex h-full flex-col overflow-hidden rounded-2xl border border-graphite/10 bg-transparent"
       onPointerEnter={(event) => handlePointerEnter(event.pointerType)}
       onPointerLeave={(event) => handlePointerLeave(event.pointerType)}
+      onClick={onClick}
     >
       <div className="relative aspect-[3/4]">
         {canPreviewInline ? (

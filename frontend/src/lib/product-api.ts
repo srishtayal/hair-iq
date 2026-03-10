@@ -101,6 +101,29 @@ const toShortDescription = (description: string, maxLength = 120) => {
   return `${description.slice(0, maxLength).trimEnd()}...`;
 };
 
+const hashString = (value: string) => {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash << 5) - hash + value.charCodeAt(index);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+};
+
+const getStableRandomRating = (seed: string) => {
+  const hashed = hashString(seed);
+  const min = 4.1;
+  const max = 4.9;
+  const normalized = (hashed % 1000) / 1000;
+  const value = min + (max - min) * normalized;
+  return Number(value.toFixed(1));
+};
+
+const getStableRandomReviewCount = (seed: string) => {
+  const hashed = hashString(`${seed}-reviews`);
+  return 200 + (hashed % 201);
+};
+
 const mapProduct = (item: BackendProduct): Product => {
   const variants = item.variants && item.variants.length ? item.variants : item.topVariant ? [item.topVariant] : [];
 
@@ -133,6 +156,8 @@ const mapProduct = (item: BackendProduct): Product => {
 
   const fallbackPrice = effectivePrice || item.topVariant?.price || 0;
   const basePrice = fallbackPrice;
+  const rating = getStableRandomRating(item.id || item.slug || item.name);
+  const reviewCount = getStableRandomReviewCount(item.id || item.slug || item.name);
 
   return {
     id: item.id,
@@ -142,8 +167,8 @@ const mapProduct = (item: BackendProduct): Product => {
     description: resolvedDescription,
     category: item.category,
     basePrice,
-    rating: 4.8,
-    reviewCount: 0,
+    rating,
+    reviewCount,
     tags: [],
     images: images.length ? images : [FALLBACK_IMAGE],
     videos,

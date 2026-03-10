@@ -17,7 +17,7 @@ const buildAuthResponse = (user, token, needsProfile = false, isNewUser = false)
 });
 
 const isProfileIncomplete = (user) => {
-  const missingName = !user.name || user.name.trim().toLowerCase() === 'user';
+  const missingName = !user.name || !user.name.trim();
   const missingPhone = !user.phone;
   return missingName || missingPhone;
 };
@@ -65,7 +65,7 @@ const verifyFirebase = async (req, res, next) => {
     if (user) {
       await user.update({
         lastLoginAt: new Date(),
-        name: user.name || name || 'User',
+        name: user.name || name || '',
         email: user.email || email,
         phone: user.phone || phone,
       });
@@ -77,7 +77,7 @@ const verifyFirebase = async (req, res, next) => {
       if (user) {
         await user.update({
           firebase_uid: uid,
-          name: user.name || name || 'User',
+          name: user.name || name || '',
           email: user.email || email,
           lastLoginAt: new Date(),
         });
@@ -90,7 +90,7 @@ const verifyFirebase = async (req, res, next) => {
           firebase_uid: uid,
           phone,
           email,
-          name: name || 'User',
+          name: name || '',
           lastLoginAt: new Date(),
         });
         isNewUser = true;
@@ -129,24 +129,38 @@ const completeProfile = async (req, res, next) => {
   try {
     const { name, phone, email } = req.body;
 
-    if (!name || !phone) {
-      return res.status(400).json({ success: false, message: 'name and phone are required' });
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ success: false, message: 'Please enter your full name' });
     }
 
-    const duplicate = await User.findOne({
-      where: {
-        phone,
-        id: { [Op.ne]: req.user.id },
-      },
-    });
+    const incomingPhone = String(phone || '').trim();
+    const currentPhone = String(req.user.phone || '').trim();
 
-    if (duplicate) {
-      return res.status(409).json({ success: false, message: 'phone already exists' });
+    if (incomingPhone && currentPhone && incomingPhone !== currentPhone) {
+      return res.status(400).json({ success: false, message: 'Mobile number cannot be changed from profile' });
+    }
+
+    const finalPhone = currentPhone || incomingPhone;
+    if (!finalPhone) {
+      return res.status(400).json({ success: false, message: 'Mobile number is missing on your account. Please login again.' });
+    }
+
+    if (!currentPhone && finalPhone) {
+      const duplicate = await User.findOne({
+        where: {
+          phone: finalPhone,
+          id: { [Op.ne]: req.user.id },
+        },
+      });
+
+      if (duplicate) {
+        return res.status(409).json({ success: false, message: 'This mobile number is already linked to another account' });
+      }
     }
 
     await req.user.update({
-      name,
-      phone,
+      name: String(name).trim(),
+      phone: finalPhone,
       email: email || null,
     });
 

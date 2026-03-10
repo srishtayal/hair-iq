@@ -6,7 +6,7 @@ import { apiRequest } from "@/lib/api";
 import { X } from "lucide-react";
 import Image from "next/image";
 // import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type HeroOffer = {
   id: string;
@@ -60,6 +60,8 @@ type BookingFormState = {
 };
 
 const PHONE_REGEX = /^\d{9,10}$/;
+const HERO_SLIDE_MS = 5200;
+const SWIPE_THRESHOLD = 48;
 
 export default function HeroSection() {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -75,15 +77,19 @@ export default function HeroSection() {
     preferredDate: "",
     preferredTime: "",
   });
+  const touchStartX = useRef<number | null>(null);
   const activeOffer = offers[activeIndex];
+
+  const goPrev = useCallback(() => setActiveIndex((prev) => (prev - 1 + offers.length) % offers.length), []);
+  const goNext = useCallback(() => setActiveIndex((prev) => (prev + 1) % offers.length), []);
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setActiveIndex((prev) => (prev + 1) % offers.length);
-    }, 2800);
+      goNext();
+    }, HERO_SLIDE_MS);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [goNext]);
 
   // const prev = () => setActiveIndex((prevIdx) => (prevIdx - 1 + offers.length) % offers.length);
   // const next = () => setActiveIndex((prevIdx) => (prevIdx + 1) % offers.length);
@@ -145,7 +151,31 @@ export default function HeroSection() {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0.4, scale: 0.98 }}
             transition={{ duration: 0.5 }}
-            className="relative aspect-[1200/500] w-full"
+            className="relative aspect-[2400/1000] w-full"
+            onWheel={(event) => {
+              if (Math.abs(event.deltaY) < 8) return;
+              if (event.deltaY > 0) {
+                goNext();
+                return;
+              }
+              goPrev();
+            }}
+            onTouchStart={(event) => {
+              touchStartX.current = event.touches[0]?.clientX ?? null;
+            }}
+            onTouchEnd={(event) => {
+              if (touchStartX.current === null) return;
+              const endX = event.changedTouches[0]?.clientX ?? touchStartX.current;
+              const delta = touchStartX.current - endX;
+              touchStartX.current = null;
+
+              if (Math.abs(delta) < SWIPE_THRESHOLD) return;
+              if (delta > 0) {
+                goNext();
+              } else {
+                goPrev();
+              }
+            }}
           >
             <Image
               src={activeOffer.image}
@@ -246,8 +276,14 @@ export default function HeroSection() {
                   className="rounded-xl border border-black/15 px-3 py-2.5 text-sm text-coal outline-none focus:border-coal"
                 />
               </div>
-              {bookingError ? <p className="mt-3 text-sm text-red-700">{bookingError}</p> : null}
-              {bookingSuccess ? <p className="mt-3 text-sm font-medium text-emerald-700">{bookingSuccess}</p> : null}
+              {bookingError ? (
+                <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{bookingError}</p>
+              ) : null}
+              {bookingSuccess ? (
+                <p className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
+                  {bookingSuccess}
+                </p>
+              ) : null}
               <button
                 type="button"
                 onClick={() => void submitBooking()}

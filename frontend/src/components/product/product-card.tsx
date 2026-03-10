@@ -145,7 +145,10 @@ export default function ProductCard({ product, mode = "default" }: ProductCardPr
           <p className="font-semibold text-coal">{currency(product.basePrice)}</p>
         </div>
 
-        <RatingStars rating={product.rating} />
+        <div className="flex items-center gap-2">
+          <RatingStars rating={product.rating} />
+          <span className="text-xs text-gray-600 sm:text-sm">({product.reviewCount})</span>
+        </div>
 
         {!showVariantPicker ? (
           <button
