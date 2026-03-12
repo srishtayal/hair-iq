@@ -6,6 +6,7 @@ import SideCartDrawer from "@/components/cart/side-cart-drawer";
 import { StoreProvider } from "@/context/store-context";
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
+import { Suspense } from "react";
 import "./globals.css";
 
 const bodyFont = Plus_Jakarta_Sans({
@@ -37,8 +38,16 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en" className={`${bodyFont.variable} ${displayFont.variable}`}>
       <body>
-        {gaMeasurementId ? <GoogleAnalytics measurementId={gaMeasurementId} /> : null}
-        {metaPixelId ? <MetaPixel pixelId={metaPixelId} /> : null}
+        {gaMeasurementId ? (
+          <Suspense fallback={null}>
+            <GoogleAnalytics measurementId={gaMeasurementId} />
+          </Suspense>
+        ) : null}
+        {metaPixelId ? (
+          <Suspense fallback={null}>
+            <MetaPixel pixelId={metaPixelId} />
+          </Suspense>
+        ) : null}
         <StoreProvider>
           <Navbar />
           <SideCartDrawer />

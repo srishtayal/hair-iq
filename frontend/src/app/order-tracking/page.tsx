@@ -4,7 +4,6 @@ import { apiRequest } from "@/lib/api";
 import { currency } from "@/lib/utils";
 import SectionHeader from "@/components/common/section-header";
 import { useStore } from "@/context/store-context";
-import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 const SERVER_USER_KEY = "hairiq_server_user";
@@ -182,8 +181,7 @@ const buildTimeline = (order: TrackingOrder): TimelineStep[] => {
 };
 
 export default function TrackingPage() {
-  const searchParams = useSearchParams();
-  const preferredOrderId = searchParams.get("order") || "";
+  const [preferredOrderId, setPreferredOrderId] = useState("");
   const { authReady, isAuthenticated, goToAuth, user } = useStore();
   const [orders, setOrders] = useState<TrackingOrder[]>([]);
   const [selectedOrderId, setSelectedOrderId] = useState<string>("");
@@ -195,6 +193,11 @@ export default function TrackingPage() {
   const [error, setError] = useState("");
   const [adminError, setAdminError] = useState("");
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const orderFromQuery = new URLSearchParams(window.location.search).get("order") || "";
+    setPreferredOrderId(orderFromQuery);
+  }, []);
 
   const ensureServerToken = useCallback(async () => {
     let token = localStorage.getItem("hairiq_server_token");
