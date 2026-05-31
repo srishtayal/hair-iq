@@ -1,34 +1,27 @@
-import Footer from "@/components/layout/footer";
-import Navbar from "@/components/layout/navbar";
 import GoogleAnalytics from "@/components/analytics/google-analytics";
 import MetaPixel from "@/components/analytics/meta-pixel";
 import SideCartDrawer from "@/components/cart/side-cart-drawer";
+import MaintenanceScreen from "@/components/layout/maintenance-screen";
 import { StoreProvider } from "@/context/store-context";
+import { isMaintenanceMode } from "@/lib/site-config";
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
 import { Suspense } from "react";
 import "./globals.css";
 
-const bodyFont = Plus_Jakarta_Sans({
-  variable: "--font-body",
-  subsets: ["latin"]
-});
-
-const displayFont = Plus_Jakarta_Sans({
-  variable: "--font-display",
-  subsets: ["latin"],
-  weight: ["600", "700"]
-});
-
 export const metadata: Metadata = {
-  title: "Hair IQ | Premium Men's Hair Patch Store",
-  description: "Shop premium men's hair patch systems, maintenance essentials, and style guides from Hair IQ.",
+  title: isMaintenanceMode ? "Hair IQ | Under Maintenance" : "Hair IQ | Premium Men's Hair Patch Store",
+  description: isMaintenanceMode
+    ? "Hair IQ is temporarily under maintenance. Please check back soon."
+    : "Shop premium men's hair patch systems, maintenance essentials, and style guides from Hair IQ.",
   keywords: ["men hair patch", "hair system", "lace hair patch", "hair IQ"],
   openGraph: {
-    title: "Hair IQ",
-    description: "Premium men's hair patch systems with modern confidence.",
+    title: isMaintenanceMode ? "Hair IQ | Under Maintenance" : "Hair IQ",
+    description: isMaintenanceMode
+      ? "Hair IQ is temporarily under maintenance. Please check back soon."
+      : "Premium men's hair patch systems with modern confidence.",
     type: "website"
-  }
+  },
+  robots: isMaintenanceMode ? { index: false, follow: false } : undefined
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -36,7 +29,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   const metaPixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID;
 
   return (
-    <html lang="en" className={`${bodyFont.variable} ${displayFont.variable}`}>
+    <html lang="en">
       <body>
         {gaMeasurementId ? (
           <Suspense fallback={null}>
@@ -49,10 +42,14 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           </Suspense>
         ) : null}
         <StoreProvider>
-          <Navbar />
-          <SideCartDrawer />
-          <main className="pb-16">{children}</main>
-          <Footer />
+          {isMaintenanceMode ? (
+            <MaintenanceScreen />
+          ) : (
+            <>
+              <SideCartDrawer />
+              <main className="pb-16">{children}</main>
+            </>
+          )}
         </StoreProvider>
       </body>
     </html>
