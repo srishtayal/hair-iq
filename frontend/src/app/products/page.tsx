@@ -2,7 +2,6 @@
 
 import { Skeleton } from "@/components/common/skeleton";
 import SectionHeader from "@/components/common/section-header";
-import OpenDeliveryPolicy from "@/components/product/open-delivery-policy";
 import ProductCard from "@/components/product/product-card";
 import { useStore } from "@/context/store-context";
 import { currency } from "@/lib/utils";
@@ -253,8 +252,6 @@ export default function ProductsPage() {
 
         {!productsLoading && productsError ? <p className="text-sm text-red-600">{productsError}</p> : null}
       </div>
-
-      <OpenDeliveryPolicy />
     </div>
   );
 }

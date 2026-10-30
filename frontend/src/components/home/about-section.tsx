@@ -13,7 +13,7 @@ export default function AboutSection() {
           We recently expanded into home service in Delhi NCR after identifying a major market gap.
         </p>
         <p>
-          We now realize that scaling a technician team nationwide will take time, so we are launching a B2C website with open delivery.
+          We now realize that scaling a technician team nationwide will take time, so we are launching a B2C website.
         </p>
         <p>
           We guarantee the best prices in the market because we eliminate middlemen and deliver directly from our factory in Bangladesh to your door.

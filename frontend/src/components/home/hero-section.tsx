@@ -30,15 +30,15 @@ const offers: HeroOffer[] = [
     image: "/images/hero/3.png",
     isDelhiNcrPoster: true,
   },
-  {
-    id: "offer-2",
-    kicker: "Best Seller",
-    headline: "Flat 20% Off On HD Skin Base Collection",
-    copy: "Invisible scalp finish and all-day hold for professional and active lifestyles.",
-    ctaLabel: "Explore Collection",
-    ctaHref: "/products",
-    image: "/images/hero/2.png"
-  },
+  // {
+  //   id: "offer-2",
+  //   kicker: "Best Seller",
+  //   headline: "Flat 20% Off On HD Skin Base Collection",
+  //   copy: "Invisible scalp finish and all-day hold for professional and active lifestyles.",
+  //   ctaLabel: "Explore Collection",
+  //   ctaHref: "/products",
+  //   image: "/images/hero/2.png"
+  // },
   {
     id: "offer-3",
     kicker: "Bundle Offer",

@@ -31,23 +31,18 @@ export default function VideoCard({
   const canPreviewInline = /\.(mp4|webm|ogg)(\?|$)/i.test(video.embedUrl);
   const shouldPreview = (hoverPreviewEnabled && isPointerHovering) || (autoPreviewEnabled && isAutoFocused);
 
-  const playPreview = (preferAudio: boolean) => {
+  const playPreview = () => {
     const media = previewRef.current;
     if (!media) return;
 
-    media.muted = !preferAudio;
+    // Inline previews can be initiated by scrolling, so they must remain muted.
+    // Visitors can enable sound from the full player after choosing a video.
+    media.muted = true;
     const playPromise = media.play();
 
     if (!playPromise || typeof playPromise.catch !== "function") return;
 
-    playPromise.catch(() => {
-      if (!preferAudio) return;
-      media.muted = true;
-      const fallbackPromise = media.play();
-      if (fallbackPromise && typeof fallbackPromise.catch === "function") {
-        fallbackPromise.catch(() => {});
-      }
-    });
+    playPromise.catch(() => {});
   };
 
   useEffect(() => {
@@ -84,7 +79,7 @@ export default function VideoCard({
     if (!media) return;
 
     if (shouldPreview) {
-      playPreview(true);
+      playPreview();
       return;
     }
 
@@ -96,7 +91,7 @@ export default function VideoCard({
   const handlePointerEnter = (pointerType: string) => {
     if (!hoverPreviewEnabled || !canPreviewInline || pointerType !== "mouse") return;
     setIsPointerHovering(true);
-    playPreview(true);
+    playPreview();
   };
 
   const handlePointerLeave = (pointerType: string) => {

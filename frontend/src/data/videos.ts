@@ -20,15 +20,6 @@ export const videos: Video[] = [
     category: "Informative"
   },
   {
-    id: "vid3",
-    title: "Open Delivery – Check Before You Accept",
-    description: "No need to worry about quality. With open delivery, you can check the patch when it arrives and accept it only if it meets your requirement.",
-    duration: "New",
-    thumbnail: "https://images.unsplash.com/photo-1502452213786-a5bc0a67e963?auto=format&fit=crop&w=1200&q=80",
-    embedUrl: "/videos/3.mp4",
-    category: "Informative"
-  },
-  {
     id: "vid4",
     title: "Japan Hair Patch – ₹3600",
     description: "High quality Japan hair patch available at just ₹3600. Natural look, comfortable fit, and ready for delivery across India.",

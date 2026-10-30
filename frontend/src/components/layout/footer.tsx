@@ -6,7 +6,7 @@ export default function Footer() {
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 md:grid-cols-3 md:px-6">
         <div>
           <p className="font-display text-2xl text-white">All Horizon</p>
-          <p className="mt-3 text-sm text-gray-300">Premium hair patch systems with transparent open delivery and dedicated customer support.</p>
+          <p className="mt-3 text-sm text-gray-300">Premium hair patch systems with dedicated customer support.</p>
         </div>
         <div>
           <p className="mb-3 text-xs uppercase tracking-[0.3em] text-champagne">Links</p>

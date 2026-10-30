@@ -25,16 +25,7 @@ const faqs = [
   },
   {
     question: "Do you offer Cash on Delivery (COD)?",
-    answer: "Yes, we offer COD with open delivery, so you can check the hair patch quality before making payment."
-  },
-  {
-    question: "What is open delivery?",
-    answer: "Open delivery means you can inspect the product in front of the courier partner before paying."
-  },
-  {
-    question: "What if I don't like the patch during open delivery?",
-    answer:
-      "If you are not satisfied with the product, you can return it immediately to the courier partner without paying anything."
+    answer: "Yes, we offer Cash on Delivery (COD) in eligible locations."
   },
   {
     question: "How long does delivery take?",
