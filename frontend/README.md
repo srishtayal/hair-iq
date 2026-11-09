@@ -32,7 +32,14 @@ NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 NEXT_PUBLIC_RAZORPAY_ENABLE_COD=false
 NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX
 NEXT_PUBLIC_META_PIXEL_ID=123456789012345
+NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN=your-store.myshopify.com
+NEXT_PUBLIC_SHOPIFY_STOREFRONT_TOKEN=your_public_storefront_token
+NEXT_PUBLIC_SHOPIFY_STOREFRONT_API_VERSION=2026-07
 ```
+
+### Shopify product catalog (optional)
+
+When the three `NEXT_PUBLIC_SHOPIFY_*` variables are set, the storefront loads products, variants, prices, and images from Shopify. Selecting checkout creates a Shopify Cart and redirects the buyer to Shopify Checkout, where delivery details and payment are collected. The current Express catalog and Razorpay/COD checkout remain the fallback when the Shopify variables are absent.
 
 Also enable Phone auth in Firebase Console.
 

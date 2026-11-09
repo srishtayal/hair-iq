@@ -1,5 +1,7 @@
 import { Product } from "@/types";
+import { products as fallbackProducts } from "@/data/products";
 import { apiRequest } from "@/lib/api";
+import { fetchShopifyProductByHandle, fetchShopifyProducts, isShopifyConfigured } from "@/lib/shopify";
 
 type BackendVariant = {
   id: string;
@@ -177,11 +179,30 @@ const mapProduct = (item: BackendProduct): Product => {
 };
 
 export const fetchProducts = async () => {
-  const response = await apiRequest<ProductListResponse>("/products?page=1&limit=100");
-  return response.data.items.map(mapProduct);
+  if (isShopifyConfigured) {
+    return fetchShopifyProducts();
+  }
+
+  try {
+    const response = await apiRequest<ProductListResponse>("/products?page=1&limit=100");
+    return response.data.items.map(mapProduct);
+  } catch {
+    // Keep the storefront browseable when a local API is unavailable.
+    return fallbackProducts;
+  }
 };
 
 export const fetchProductBySlug = async (slug: string) => {
-  const response = await apiRequest<ProductDetailResponse>(`/products/${encodeURIComponent(slug)}`);
-  return mapProduct(response.data);
+  if (isShopifyConfigured) {
+    return fetchShopifyProductByHandle(slug);
+  }
+
+  try {
+    const response = await apiRequest<ProductDetailResponse>(`/products/${encodeURIComponent(slug)}`);
+    return mapProduct(response.data);
+  } catch {
+    const fallbackProduct = fallbackProducts.find((product) => product.slug === slug);
+    if (fallbackProduct) return fallbackProduct;
+    throw new Error("Product not found");
+  }
 };

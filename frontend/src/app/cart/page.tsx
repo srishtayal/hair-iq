@@ -5,6 +5,7 @@ import EmptyState from "@/components/common/empty-state";
 import SectionHeader from "@/components/common/section-header";
 import { useStore } from "@/context/store-context";
 import { apiRequest } from "@/lib/api";
+import { createShopifyCheckout, isShopifyConfigured } from "@/lib/shopify";
 import { currency } from "@/lib/utils";
 import { BadgeCheck, ShieldCheck, Truck } from "lucide-react";
 import Link from "next/link";
@@ -269,6 +270,7 @@ export default function CartPage() {
   const [addressesLoading, setAddressesLoading] = useState(false);
   const [addressesError, setAddressesError] = useState("");
   const [accountPhone, setAccountPhone] = useState("");
+  const usesShopifyCheckout = isShopifyConfigured;
 
   useEffect(() => {
     const fromAuth = user?.phoneNumber?.replace(/\D/g, "").slice(-10) || "";
@@ -668,11 +670,28 @@ export default function CartPage() {
     setIsProcessing(false);
   };
 
+  const handleShopifyCheckout = async () => {
+    const lines = cartItems.map((item) => ({
+      merchandiseId: item.variantId,
+      quantity: item.quantity,
+    }));
+
+    const checkoutUrl = await createShopifyCheckout({
+      lines,
+      buyerIdentity: {
+        ...(user?.email ? { email: user.email } : {}),
+        ...(user?.phoneNumber ? { phone: user.phoneNumber } : {}),
+      },
+    });
+
+    window.location.assign(checkoutUrl);
+  };
+
   const handleCheckout = async () => {
     setCheckoutError(null);
     setCheckoutSuccess(null);
 
-    if (!isAuthenticated) {
+    if (!usesShopifyCheckout && !isAuthenticated) {
       goToAuth("/cart");
       return;
     }
@@ -687,7 +706,7 @@ export default function CartPage() {
       return;
     }
 
-    if (selectedAddressId === MANUAL_ADDRESS_ID) {
+    if (!usesShopifyCheckout && selectedAddressId === MANUAL_ADDRESS_ID) {
       validateCodDetails({
         ...codDetails,
         phone: accountPhone || codDetails.phone,
@@ -699,7 +718,9 @@ export default function CartPage() {
     setIsProcessing(true);
 
     try {
-      if (paymentMethod === "online") {
+      if (usesShopifyCheckout) {
+        await handleShopifyCheckout();
+      } else if (paymentMethod === "online") {
         await handleOnlineCheckout();
       } else {
         await handleCodCheckout();
@@ -715,6 +736,18 @@ export default function CartPage() {
     () => cartItems.reduce((accumulator, item) => accumulator + item.quantity, 0),
     [cartItems]
   );
+  const checkoutButtonDisabled = isProcessing || (!usesShopifyCheckout && (isManualAddressIncomplete || (paymentMethod === "cod" && !isCodServiceable)));
+  const checkoutButtonLabel = isProcessing
+    ? usesShopifyCheckout
+      ? "Opening secure checkout..."
+      : paymentMethod === "online"
+        ? "Opening Razorpay..."
+        : "Placing COD order..."
+    : usesShopifyCheckout
+      ? "Continue to Shopify Checkout"
+      : paymentMethod === "online"
+        ? "Continue To Payment"
+        : "Place COD Order";
 
   return (
     <div className="space-y-6 bg-[#f2f3f5] pb-28 pt-8 md:space-y-8 md:bg-transparent md:pb-6 md:pt-12">
@@ -736,7 +769,7 @@ export default function CartPage() {
           </div>
 
           <aside className="h-fit space-y-4 xl:sticky xl:top-24">
-            <section className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm">
+            {!usesShopifyCheckout ? <section className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-coal">Shipping Address</h3>
                 <Link href="/profile" className="text-xs font-semibold text-coal underline underline-offset-4">
@@ -872,7 +905,16 @@ export default function CartPage() {
                   />
                 </div>
               ) : null}
-            </section>
+            </section> : null}
+
+            {usesShopifyCheckout ? (
+              <section className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm">
+                <h3 className="font-semibold text-coal">Shopify Checkout</h3>
+                <p className="mt-2 text-sm text-gray-600">
+                  You’ll enter your delivery address and choose a payment method securely on Shopify’s checkout page.
+                </p>
+              </section>
+            ) : null}
 
             <section className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm">
               <h3 className="font-semibold text-coal">Bill Summary</h3>
@@ -895,7 +937,7 @@ export default function CartPage() {
               </div>
             </section>
 
-            <section className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm">
+            {!usesShopifyCheckout ? <section className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm">
               <p className="text-sm font-semibold text-coal">Choose payment method</p>
               <div className="mt-3 space-y-2">
                 <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-black/10 px-3 py-2 text-sm text-coal">
@@ -930,7 +972,7 @@ export default function CartPage() {
                   {codAvailabilityMessage}
                 </p>
               ) : null}
-            </section>
+            </section> : null}
 
             <section className="grid grid-cols-3 gap-2 rounded-2xl border border-black/10 bg-white p-3 text-center text-xs text-gray-700 shadow-sm">
               <div className="flex flex-col items-center gap-1">
@@ -949,16 +991,10 @@ export default function CartPage() {
 
             <button
               onClick={handleCheckout}
-              disabled={isProcessing || isManualAddressIncomplete || (paymentMethod === "cod" && !isCodServiceable)}
+              disabled={checkoutButtonDisabled}
               className="hidden w-full rounded-full bg-champagne px-4 py-3 text-sm font-semibold text-coal disabled:cursor-not-allowed disabled:opacity-70 lg:block"
             >
-              {isProcessing
-                ? paymentMethod === "online"
-                  ? "Opening Razorpay..."
-                  : "Placing COD order..."
-                : paymentMethod === "online"
-                  ? "Continue To Payment"
-                  : "Place COD Order"}
+              {checkoutButtonLabel}
             </button>
             {checkoutError ? (
               <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{checkoutError}</p>
@@ -980,16 +1016,10 @@ export default function CartPage() {
           </div>
           <button
             onClick={handleCheckout}
-            disabled={isProcessing || isManualAddressIncomplete || (paymentMethod === "cod" && !isCodServiceable)}
+            disabled={checkoutButtonDisabled}
             className="w-full rounded-xl bg-champagne px-4 py-3 text-sm font-semibold text-coal disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {isProcessing
-              ? paymentMethod === "online"
-                ? "Opening Razorpay..."
-                : "Placing COD order..."
-              : paymentMethod === "online"
-                ? "Continue To Payment"
-                : "Place COD Order"}
+            {checkoutButtonLabel}
           </button>
         </div>
       ) : null}
