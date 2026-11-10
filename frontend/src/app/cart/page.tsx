@@ -5,6 +5,7 @@ import EmptyState from "@/components/common/empty-state";
 import SectionHeader from "@/components/common/section-header";
 import { useStore } from "@/context/store-context";
 import { apiRequest } from "@/lib/api";
+import { buildIndiSellCart, openIndiSellCheckout } from "@/lib/indisell";
 import { createShopifyCheckout, isShopifyConfigured } from "@/lib/shopify";
 import { currency } from "@/lib/utils";
 import { BadgeCheck, ShieldCheck, Truck } from "lucide-react";
@@ -671,6 +672,13 @@ export default function CartPage() {
   };
 
   const handleShopifyCheckout = async () => {
+    const indisellCart = buildIndiSellCart(cartItems, getCartProduct);
+    if (indisellCart && openIndiSellCheckout(indisellCart)) {
+      // The overlay owns the checkout flow. Let the buyer reopen it if dismissed.
+      setIsProcessing(false);
+      return;
+    }
+
     const lines = cartItems.map((item) => ({
       merchandiseId: item.variantId,
       quantity: item.quantity,
@@ -744,7 +752,7 @@ export default function CartPage() {
         ? "Opening Razorpay..."
         : "Placing COD order..."
     : usesShopifyCheckout
-      ? "Continue to Shopify Checkout"
+      ? "Secure Checkout"
       : paymentMethod === "online"
         ? "Continue To Payment"
         : "Place COD Order";

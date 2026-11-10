@@ -4,7 +4,9 @@ import SideCartDrawer from "@/components/cart/side-cart-drawer";
 import Footer from "@/components/layout/footer";
 import Navbar from "@/components/layout/navbar";
 import { StoreProvider } from "@/context/store-context";
+import { INDISELL_ENABLED, INDISELL_WIDGET_SRC } from "@/lib/indisell";
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Suspense } from "react";
 import "./globals.css";
 
@@ -26,6 +28,14 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en">
       <body>
+        {INDISELL_ENABLED ? (
+          <>
+            <Script id="indisell-config" strategy="beforeInteractive">
+              {`window.IndiSellConfig = { autoBind: false, autoFocusPhone: false };`}
+            </Script>
+            <Script src={INDISELL_WIDGET_SRC} strategy="afterInteractive" />
+          </>
+        ) : null}
         {gaMeasurementId ? (
           <Suspense fallback={null}>
             <GoogleAnalytics measurementId={gaMeasurementId} />
