@@ -1,15 +1,29 @@
 "use client";
 
 import { useStore } from "@/context/store-context";
+import { buildIndiSellCart, openIndiSellCheckout } from "@/lib/indisell";
 import { currency } from "@/lib/utils";
 import { X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function SideCartDrawer() {
-  const { isSideCartOpen, closeSideCart, sideCartItem, getCartProduct, cartSubtotal, cartCount } = useStore();
+  const router = useRouter();
+  const { isSideCartOpen, closeSideCart, sideCartItem, getCartProduct, cartItems, cartSubtotal, cartCount } = useStore();
   const product = sideCartItem ? getCartProduct(sideCartItem) : undefined;
   const variant = product?.variants.find((entry) => entry.id === sideCartItem?.variantId);
+
+  const handleCheckout = () => {
+    const cart = buildIndiSellCart(cartItems, getCartProduct);
+    if (cart && openIndiSellCheckout(cart)) {
+      closeSideCart();
+      return;
+    }
+
+    closeSideCart();
+    router.push("/cart");
+  };
 
   return (
     <>
@@ -83,13 +97,13 @@ export default function SideCartDrawer() {
           >
             View Cart
           </Link>
-          <Link
-            href="/cart"
-            onClick={closeSideCart}
+          <button
+            type="button"
+            onClick={handleCheckout}
             className="block w-full rounded-full border border-black/20 bg-white px-4 py-3 text-center text-sm font-semibold text-coal transition hover:bg-gray-50"
           >
             Checkout
-          </Link>
+          </button>
           <button
             type="button"
             onClick={closeSideCart}
