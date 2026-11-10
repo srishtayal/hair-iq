@@ -21,8 +21,8 @@ export const videos: Video[] = [
   },
   {
     id: "vid4",
-    title: "Japan Hair Patch – ₹3600",
-    description: "High quality Japan hair patch available at just ₹3600. Natural look, comfortable fit, and ready for delivery across India.",
+    title: "Monofilament Patch – ₹5,000",
+    description: "Premium monofilament hair patch available at ₹5,000. Natural look, comfortable fit, and ready for delivery across India.",
     duration: "New",
     thumbnail: "https://images.unsplash.com/photo-1499996860823-5214fcc65f8f?auto=format&fit=crop&w=1200&q=80",
     embedUrl: "/videos/4.mp4",
@@ -30,8 +30,8 @@ export const videos: Video[] = [
   },
   {
     id: "vid5",
-    title: "Australian Mirage Patch – ₹8600",
-    description: "Premium Australian Mirage hair patch available for ₹8600. Designed for a natural look with a lightweight and comfortable feel.",
+    title: "Australian Mirage Patch – ₹10,000",
+    description: "Premium Australian Mirage hair patch available for ₹10,000. Designed for a natural look with a lightweight and comfortable feel.",
     duration: "New",
     thumbnail: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=1200&q=80",
     embedUrl: "/videos/5.mp4",
@@ -48,8 +48,8 @@ export const videos: Video[] = [
   },
   {
     id: "vid7",
-    title: "Australian Hair Patch – ₹6,800",
-    description: "Premium Australian hair patch available at ₹6,800. Natural appearance with a comfortable and long-lasting fit.",
+    title: "Australian Hair Patch – ₹9,000",
+    description: "Premium Australian hair patch available at ₹9,000. Natural appearance with a comfortable and long-lasting fit.",
     duration: "New",
     thumbnail: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=1200&q=80",
     embedUrl: "/videos/7.mp4",
